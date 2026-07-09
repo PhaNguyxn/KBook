@@ -1,54 +1,95 @@
 const Reader = require("../models/Reader");
 
 const getAllReaders = async (query) => {
-  const page = Number(query.page) || 1;
-  const limit = Number(query.limit) || 10;
+  let { page = 1, limit = 10, keyword, gender, status, sort } = query;
 
-  const skip = (page - 1) * limit;
+  page = Number(page);
+  limit = Number(limit);
 
-  const filter = {
-    status: true,
-  };
+  const filter = {};
 
-  if (query.keyword) {
+  if (keyword) {
     filter.$or = [
       {
-        firstName: {
-          $regex: query.keyword,
+        readerCode: {
+          $regex: keyword,
           $options: "i",
         },
       },
 
       {
-        lastName: {
-          $regex: query.keyword,
+        fullName: {
+          $regex: keyword,
+          $options: "i",
+        },
+      },
+
+      {
+        email: {
+          $regex: keyword,
           $options: "i",
         },
       },
 
       {
         phone: {
-          $regex: query.keyword,
+          $regex: keyword,
+          $options: "i",
+        },
+      },
+
+      {
+        address: {
+          $regex: keyword,
           $options: "i",
         },
       },
     ];
   }
 
-  const readers = await Reader.find(filter).skip(skip).limit(limit).sort({
+  if (gender) {
+    filter.gender = gender;
+  }
+
+  if (status !== undefined) {
+    filter.status = status === "true";
+  }
+
+  let sortOption = {
     createdAt: -1,
-  });
+  };
+
+  if (sort === "name") {
+    sortOption = {
+      fullName: 1,
+    };
+  }
+
+  if (sort === "readerCode") {
+    sortOption = {
+      readerCode: 1,
+    };
+  }
 
   const total = await Reader.countDocuments(filter);
+
+  const readers = await Reader.find(filter)
+    .sort(sortOption)
+    .skip((page - 1) * limit)
+    .limit(limit);
 
   return {
     readers,
 
-    total,
+    pagination: {
+      total,
 
-    page,
+      page,
 
-    limit,
+      limit,
+
+      totalPages: Math.ceil(total / limit),
+    },
   };
 };
 
