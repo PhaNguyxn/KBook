@@ -21,4 +21,7 @@ app.use("/api/auth", authRoute);
 const bookRoute = require("./src/routes/book.route");
 app.use("/api/books", bookRoute);
 
+const publisherRoute = require("./src/routes/publisher.route");
+app.use("/api/publishers", publisherRoute);
+
 module.exports = app;

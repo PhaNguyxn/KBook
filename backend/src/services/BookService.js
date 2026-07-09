@@ -1,15 +1,18 @@
 const Book = require("../models/Book");
 
-const getAllBooks = async () => {
-  return await Book.find({
+const getAllBooks = async (query) => {
+  const filter = {
     status: true,
-  })
+  };
 
-    .populate("category")
+  if (query.keyword) {
+    filter.title = {
+      $regex: query.keyword,
+      $options: "i",
+    };
+  }
 
-    .sort({
-      createdAt: -1,
-    });
+  return await Book.find(filter).populate("publisher").sort({ createdAt: -1 });
 };
 
 const createBook = async (data) => {
@@ -30,7 +33,7 @@ const createBook = async (data) => {
 };
 
 const getBookById = async (id) => {
-  const book = await Book.findById(id).populate("category");
+  const book = await Book.findById(id).populate("publisher");
 
   if (!book) {
     throw new Error("Không tìm thấy sách");

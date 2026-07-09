@@ -2,7 +2,7 @@ const BookService = require("../services/BookService");
 
 const getAllBooks = async (req, res) => {
   try {
-    const books = await BookService.getAllBooks();
+    const books = await BookService.getAllBooks(req.query);
 
     res.json({
       success: true,
