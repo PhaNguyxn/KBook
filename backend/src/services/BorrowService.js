@@ -47,11 +47,120 @@ const createBorrow = async (data, employeeId) => {
   return borrow;
 };
 
-const getAllBorrows = async () => {
-  return await Borrow.find()
+const getAllBorrows = async (query) => {
+  let {
+    page = 1,
+
+    limit = 10,
+
+    status,
+
+    reader,
+
+    employee,
+
+    fromDate,
+
+    toDate,
+
+    sort,
+  } = query;
+
+  page = Number(page);
+
+  limit = Number(limit);
+
+  const filter = {};
+
+  // =====================
+  // Filter trạng thái
+  // =====================
+
+  if (status) {
+    filter.status = status;
+  }
+
+  // =====================
+  // Filter độc giả
+  // =====================
+
+  if (reader) {
+    filter.reader = reader;
+  }
+
+  // =====================
+  // Filter nhân viên
+  // =====================
+
+  if (employee) {
+    filter.employee = employee;
+  }
+
+  // =====================
+  // Filter ngày mượn
+  // =====================
+
+  if (fromDate || toDate) {
+    filter.borrowDate = {};
+
+    if (fromDate) {
+      filter.borrowDate.$gte = new Date(fromDate);
+    }
+
+    if (toDate) {
+      filter.borrowDate.$lte = new Date(toDate);
+    }
+  }
+
+  // =====================
+  // Sort
+  // =====================
+
+  let sortOption = {
+    createdAt: -1,
+  };
+
+  if (sort === "borrowDate") {
+    sortOption = {
+      borrowDate: -1,
+    };
+  }
+
+  if (sort === "returnDate") {
+    sortOption = {
+      returnDate: -1,
+    };
+  }
+
+  const total = await Borrow.countDocuments(filter);
+
+  const borrows = await Borrow.find(filter)
+
+    .populate("book")
+
     .populate("reader")
+
     .populate("employee")
-    .sort({ createdAt: -1 });
+
+    .sort(sortOption)
+
+    .skip((page - 1) * limit)
+
+    .limit(limit);
+
+  return {
+    borrows,
+
+    pagination: {
+      total,
+
+      page,
+
+      limit,
+
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 };
 
 const getBorrowById = async (id) => {

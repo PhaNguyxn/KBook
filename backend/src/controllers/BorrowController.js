@@ -3,18 +3,22 @@ const BorrowService = require("../services/BorrowService");
 // Lấy danh sách phiếu mượn
 const getAllBorrows = async (req, res) => {
   try {
-    const borrows = await BorrowService.getAllBorrows();
+
+    const result = await BorrowService.getAllBorrows(req.query);
 
     res.status(200).json({
       success: true,
       message: "Lấy danh sách phiếu mượn thành công",
-      data: borrows,
+      data: result,
     });
+
   } catch (error) {
+
     res.status(500).json({
       success: false,
       message: error.message,
     });
+
   }
 };
 
