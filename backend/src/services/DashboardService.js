@@ -1,7 +1,6 @@
 const Book = require("../models/Book");
 const Reader = require("../models/Reader");
 const Employee = require("../models/Employee");
-const Publisher = require("../models/Publisher");
 const Borrow = require("../models/Borrow");
 
 const getDashboard = async () => {
@@ -11,47 +10,79 @@ const getDashboard = async () => {
 
   const totalEmployees = await Employee.countDocuments();
 
-  const totalPublishers = await Publisher.countDocuments();
-
-  const totalBorrowSlips = await Borrow.countDocuments();
-
-  const borrowing = await Borrow.countDocuments({
+  const totalBorrowing = await Borrow.countDocuments({
     status: "borrowing",
   });
 
-  const returned = await Borrow.countDocuments({
+  const totalReturned = await Borrow.countDocuments({
     status: "returned",
   });
 
-  const overdue = await Borrow.countDocuments({
-    status: "borrowing",
-    dueDate: {
-      $lt: new Date(),
+  const totalOverdue = await Borrow.countDocuments({
+    status: "late",
+  });
+
+  const booksUnavailable = await Book.countDocuments({
+    available: 0,
+  });
+
+  const recentBorrows = await Borrow.find()
+    .populate("book")
+    .populate("reader")
+    .populate("employee")
+    .sort({
+      createdAt: -1,
+    })
+    .limit(5);
+
+  const topBooks = await Borrow.aggregate([
+    {
+      $group: {
+        _id: "$book",
+        totalBorrow: {
+          $sum: 1,
+        },
+      },
     },
-  });
-
-  const books = await Book.find();
-
-  let availableBooks = 0;
-
-  let borrowedBooks = 0;
-
-  books.forEach((book) => {
-    availableBooks += book.available;
-    borrowedBooks += book.quantity - book.available;
-  });
+    {
+      $sort: {
+        totalBorrow: -1,
+      },
+    },
+    {
+      $limit: 5,
+    },
+    {
+      $lookup: {
+        from: "books",
+        localField: "_id",
+        foreignField: "_id",
+        as: "book",
+      },
+    },
+    {
+      $unwind: "$book",
+    },
+  ]);
 
   return {
     totalBooks,
+
     totalReaders,
+
     totalEmployees,
-    totalPublishers,
-    totalBorrowSlips,
-    borrowing,
-    returned,
-    overdue,
-    availableBooks,
-    borrowedBooks,
+
+    totalBorrowing,
+
+    totalReturned,
+
+    totalOverdue,
+
+    booksUnavailable,
+
+    recentBorrows,
+
+    topBooks,
   };
 };
 
