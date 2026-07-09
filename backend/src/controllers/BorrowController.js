@@ -54,9 +54,9 @@ const createBorrow = async (req, res) => {
 };
 
 // Trả sách
-const returnBook = async (req, res) => {
+const returnBorrow = async (req, res) => {
   try {
-    const borrow = await BorrowService.returnBook(req.params.id);
+    const borrow = await BorrowService.returnBorrow(req.params.id);
 
     res.status(200).json({
       success: true,
@@ -75,5 +75,5 @@ module.exports = {
   getAllBorrows,
   getBorrowById,
   createBorrow,
-  returnBook,
+  returnBorrow,
 };

@@ -10,13 +10,7 @@ const borrowSchema = new mongoose.Schema(
 
     employee: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Sau này đổi thành Employee
-      required: true,
-    },
-
-    book: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Book",
+      ref: "Employee",
       required: true,
     },
 

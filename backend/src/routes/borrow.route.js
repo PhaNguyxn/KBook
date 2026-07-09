@@ -12,6 +12,6 @@ router.get("/:id", verifyToken, BorrowController.getBorrowById);
 
 router.post("/", verifyToken, BorrowController.createBorrow);
 
-router.put("/return/:id", verifyToken, BorrowController.returnBook);
+router.put("/:id/return", verifyToken, BorrowController.returnBorrow);
 
 module.exports = router;
