@@ -18,17 +18,16 @@ const getAllBooks = async (req, res) => {
 
 const createBook = async (req, res) => {
   try {
-    const book = await BookService.createBook(req.body);
+    const book = await BookService.createBook(req.body, req.file);
 
     res.status(201).json({
       success: true,
-
+      message: "Thêm sách thành công",
       data: book,
     });
   } catch (err) {
     res.status(400).json({
       success: false,
-
       message: err.message,
     });
   }
@@ -86,6 +85,7 @@ const deleteBook = async (req, res) => {
   }
 };
 
+
 module.exports = {
   getAllBooks,
 
@@ -96,4 +96,5 @@ module.exports = {
   updateBook,
 
   deleteBook,
+
 };

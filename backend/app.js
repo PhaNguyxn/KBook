@@ -7,6 +7,8 @@ const readerRoute = require("./src/routes/reader.route");
 const borrowRoute = require("./src/routes/borrow.route");
 const dashboardRoute = require("./src/routes/dashboard.route");
 const employeeRoute = require("./src/routes/employee.route");
+const path = require("path");
+
 const app = express();
 
 app.use(cors());
@@ -19,6 +21,7 @@ app.use("/api/readers", readerRoute);
 app.use("/api/borrows", borrowRoute);
 app.use("/api/dashboard", dashboardRoute);
 app.use("/api/employees", employeeRoute);
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/", (req, res) => {
   res.json({

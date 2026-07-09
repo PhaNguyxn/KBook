@@ -15,18 +15,38 @@ const getAllBooks = async (query) => {
   return await Book.find(filter).populate("publisher").sort({ createdAt: -1 });
 };
 
-const createBook = async (data) => {
-  const existed = await Book.findOne({
-    isbn: data.isbn,
-  });
+const createBook = async (data, file) => {
+  const {
+    title,
+    author,
+    publisher,
+    publishYear,
+    isbn,
+    quantity,
+    available,
+    description,
+  } = data;
+
+  const existed = await Book.findOne({ isbn });
 
   if (existed) {
     throw new Error("ISBN đã tồn tại");
   }
 
+  const image = file
+    ? `/uploads/${file.filename}`
+    : "/uploads/default-book.png";
+
   const book = await Book.create({
-    ...data,
-    available: data.quantity,
+    title,
+    author,
+    publisher,
+    publishYear,
+    isbn,
+    quantity,
+    available,
+    description,
+    image,
   });
 
   return book;
@@ -50,6 +70,10 @@ const updateBook = async (id, data) => {
   }
 
   Object.assign(book, data);
+
+  if (file) {
+    book.image = `/uploads/${file.filename}`;
+  }
 
   await book.save();
 
