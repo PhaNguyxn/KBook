@@ -24,4 +24,7 @@ app.use("/api/books", bookRoute);
 const publisherRoute = require("./src/routes/publisher.route");
 app.use("/api/publishers", publisherRoute);
 
+const readerRoute = require("./src/routes/reader.route");
+app.use("/api/readers", readerRoute);
+
 module.exports = app;
