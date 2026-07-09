@@ -1,4 +1,4 @@
-const User = require("../models/User");
+const User = require("../models/Employee");
 
 const getAllUsers = async (req, res) => {
   const users = await User.find();

@@ -1,50 +1,69 @@
-const User = require("../models/User");
+const Employee = require("../models/Employee");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
+// Đăng ký nhân viên
 const register = async (data) => {
-  const { username, password, fullName, email } = data;
+  const {
+    employeeCode,
+    fullName,
+    email,
+    password,
+    phone,
+    birthday,
+    gender,
+    address,
+    role,
+  } = data;
 
-  const existed = await User.findOne({
-    username,
-  });
+  const employeeExist = await Employee.findOne({ employeeCode });
 
-  if (existed) {
-    throw new Error("Username đã tồn tại");
+  if (employeeExist) {
+    throw new Error("Mã nhân viên đã tồn tại");
   }
 
-  const emailExist = await User.findOne({
-    email,
-  });
+  const emailExist = await Employee.findOne({ email });
 
   if (emailExist) {
     throw new Error("Email đã tồn tại");
   }
 
+  const phoneExist = await Employee.findOne({ phone });
+
+  if (phoneExist) {
+    throw new Error("Số điện thoại đã tồn tại");
+  }
+
   const hashPassword = await bcrypt.hash(password, 10);
 
-  const user = await User.create({
-    username,
-    password: hashPassword,
+  const employee = await Employee.create({
+    employeeCode,
     fullName,
     email,
+    password: hashPassword,
+    phone,
+    birthday,
+    gender,
+    address,
+    role,
   });
 
-  return user;
+  return employee;
 };
 
+// Đăng nhập
 const login = async (data) => {
-  const { username, password } = data;
+  const { employeeCode, password } = data;
 
-  const user = await User.findOne({
-    username,
+  const employee = await Employee.findOne({
+    employeeCode,
   });
 
-  if (!user) {
+  if (!employee) {
     throw new Error("Tài khoản không tồn tại");
   }
 
-  const check = await bcrypt.compare(password, user.password);
+  const check = await bcrypt.compare(password, employee.password);
 
   if (!check) {
     throw new Error("Sai mật khẩu");
@@ -52,8 +71,8 @@ const login = async (data) => {
 
   const token = jwt.sign(
     {
-      id: user._id,
-      role: user.role,
+      id: employee._id,
+      role: employee.role,
     },
     process.env.JWT_SECRET,
     {
@@ -63,10 +82,11 @@ const login = async (data) => {
 
   return {
     token,
-    user,
+    employee,
   };
 };
 
 module.exports = {
-  register, login
+  register,
+  login,
 };

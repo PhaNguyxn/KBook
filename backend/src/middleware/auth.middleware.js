@@ -4,8 +4,9 @@ const verifyToken = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
+        success: false,
         message: "Chưa đăng nhập",
       });
     }
@@ -17,8 +18,9 @@ const verifyToken = (req, res, next) => {
     req.user = decoded;
 
     next();
-  } catch (err) {
-    return res.status(401).json({
+  } catch (error) {
+    res.status(401).json({
+      success: false,
       message: "Token không hợp lệ",
     });
   }
