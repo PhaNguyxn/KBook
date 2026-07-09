@@ -1,18 +1,60 @@
 const Book = require("../models/Book");
 
 const getAllBooks = async (query) => {
-  const filter = {
-    status: true,
-  };
+  let { page = 1, limit = 10, keyword, publisher, status } = query;
 
-  if (query.keyword) {
-    filter.title = {
-      $regex: query.keyword,
-      $options: "i",
-    };
+  page = Number(page);
+  limit = Number(limit);
+
+  const filter = {};
+
+  // Search
+  if (keyword) {
+    filter.$or = [
+      {
+        title: {
+          $regex: keyword,
+          $options: "i",
+        },
+      },
+      {
+        author: {
+          $regex: keyword,
+          $options: "i",
+        },
+      },
+    ];
   }
 
-  return await Book.find(filter).populate("publisher").sort({ createdAt: -1 });
+  // Filter publisher
+  if (publisher) {
+    filter.publisher = publisher;
+  }
+
+  // Filter trạng thái
+  if (status !== undefined) {
+    filter.status = status === "true";
+  }
+
+  const total = await Book.countDocuments(filter);
+
+  const books = await Book.find(filter)
+    .populate("publisher")
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .sort({
+      createdAt: -1,
+    });
+
+  return {
+    books,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 };
 
 const createBook = async (data, file) => {

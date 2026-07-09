@@ -2,16 +2,17 @@ const BookService = require("../services/BookService");
 
 const getAllBooks = async (req, res) => {
   try {
-    const books = await BookService.getAllBooks(req.query);
+    const result = await BookService.getAllBooks(req.query);
 
-    res.json({
+    res.status(200).json({
       success: true,
-
-      data: books,
+      message: "Lấy danh sách sách thành công",
+      data: result,
     });
-  } catch (err) {
+  } catch (error) {
     res.status(500).json({
-      message: err.message,
+      success: false,
+      message: error.message,
     });
   }
 };
