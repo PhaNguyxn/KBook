@@ -27,4 +27,7 @@ app.use("/api/publishers", publisherRoute);
 const readerRoute = require("./src/routes/reader.route");
 app.use("/api/readers", readerRoute);
 
+const borrowRoute = require("./src/routes/borrow.route");
+app.use("/api/borrows", borrowRoute);
+
 module.exports = app;
