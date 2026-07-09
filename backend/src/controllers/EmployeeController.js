@@ -21,12 +21,12 @@ const createEmployee = async (req, res) => {
 // Lấy danh sách nhân viên
 const getAllEmployees = async (req, res) => {
   try {
-    const employees = await EmployeeService.getAllEmployees();
+    const result = await EmployeeService.getAllEmployees(req.query);
 
     res.status(200).json({
       success: true,
       message: "Lấy danh sách nhân viên thành công",
-      data: employees,
+      data: result,
     });
   } catch (error) {
     res.status(500).json({

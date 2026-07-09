@@ -51,8 +51,99 @@ const createEmployee = async (data) => {
 };
 
 // Lấy danh sách nhân viên
-const getAllEmployees = async () => {
-  return await Employee.find().select("-password").sort({ createdAt: -1 });
+const getAllEmployees = async (query) => {
+  let { page = 1, limit = 10, keyword, role, status, sort } = query;
+
+  page = Number(page);
+  limit = Number(limit);
+
+  const filter = {};
+
+  // Search
+
+  if (keyword) {
+    filter.$or = [
+      {
+        fullName: {
+          $regex: keyword,
+          $options: "i",
+        },
+      },
+
+      {
+        username: {
+          $regex: keyword,
+          $options: "i",
+        },
+      },
+
+      {
+        email: {
+          $regex: keyword,
+          $options: "i",
+        },
+      },
+
+      {
+        phone: {
+          $regex: keyword,
+          $options: "i",
+        },
+      },
+    ];
+  }
+
+  // Role
+
+  if (role) {
+    filter.role = role;
+  }
+
+  // Status
+
+  if (status !== undefined) {
+    filter.status = status === "true";
+  }
+
+  // Sort
+
+  let sortOption = {
+    createdAt: -1,
+  };
+
+  if (sort === "name") {
+    sortOption = {
+      fullName: 1,
+    };
+  }
+
+  if (sort === "username") {
+    sortOption = {
+      username: 1,
+    };
+  }
+
+  const total = await Employee.countDocuments(filter);
+
+  const employees = await Employee.find(filter)
+    .select("-password")
+    .sort(sortOption)
+    .skip((page - 1) * limit)
+    .limit(limit);
+
+  return {
+    employees,
+
+    pagination: {
+      total,
+
+      page,
+
+      limit,
+
+      totalPages: Math.ceil(total / limit),
+    },
+  };
 };
 
 // Lấy chi tiết nhân viên
