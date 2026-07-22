@@ -77,7 +77,7 @@ const createBook = async (data, file) => {
 
   const image = file
     ? `/uploads/${file.filename}`
-    : "/uploads/default-book.png";
+    : "/uploads/default-book.jpg";
 
   const book = await Book.create({
     title,
@@ -104,7 +104,7 @@ const getBookById = async (id) => {
   return book;
 };
 
-const updateBook = async (id, data) => {
+const updateBook = async (id, data, file) => {
   const book = await Book.findById(id);
 
   if (!book) {
@@ -119,7 +119,7 @@ const updateBook = async (id, data) => {
 
   await book.save();
 
-  return book;
+  return await Book.findById(id).populate("publisher");
 };
 
 const deleteBook = async (id) => {

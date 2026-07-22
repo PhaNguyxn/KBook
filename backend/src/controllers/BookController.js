@@ -54,18 +54,19 @@ const updateBook = async (req, res) => {
   try {
     const book = await BookService.updateBook(
       req.params.id,
-
       req.body,
+      req.file,
     );
 
-    res.json({
+    res.status(200).json({
       success: true,
-
+      message: "Cập nhật sách thành công",
       data: book,
     });
-  } catch (err) {
+  } catch (error) {
     res.status(400).json({
-      message: err.message,
+      success: false,
+      message: error.message,
     });
   }
 };

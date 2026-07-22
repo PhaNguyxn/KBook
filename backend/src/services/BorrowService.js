@@ -136,8 +136,6 @@ const getAllBorrows = async (query) => {
 
   const borrows = await Borrow.find(filter)
 
-    .populate("book")
-
     .populate("reader")
 
     .populate("employee")

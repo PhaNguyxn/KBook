@@ -71,13 +71,6 @@ const getAllEmployees = async (query) => {
       },
 
       {
-        username: {
-          $regex: keyword,
-          $options: "i",
-        },
-      },
-
-      {
         email: {
           $regex: keyword,
           $options: "i",
@@ -117,9 +110,9 @@ const getAllEmployees = async (query) => {
     };
   }
 
-  if (sort === "username") {
+  if (sort === "employeeCode") {
     sortOption = {
-      username: 1,
+      employeeCode: 1,
     };
   }
 

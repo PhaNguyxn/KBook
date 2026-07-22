@@ -16,28 +16,24 @@ const getAllReaders = async (query) => {
           $options: "i",
         },
       },
-
       {
-        fullName: {
+        firstName: {
           $regex: keyword,
           $options: "i",
         },
       },
-
       {
-        email: {
+        lastName: {
           $regex: keyword,
           $options: "i",
         },
       },
-
       {
         phone: {
           $regex: keyword,
           $options: "i",
         },
       },
-
       {
         address: {
           $regex: keyword,
@@ -61,7 +57,8 @@ const getAllReaders = async (query) => {
 
   if (sort === "name") {
     sortOption = {
-      fullName: 1,
+      lastName: 1,
+      firstName: 1,
     };
   }
 

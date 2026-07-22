@@ -2,6 +2,7 @@ const Book = require("../models/Book");
 const Reader = require("../models/Reader");
 const Employee = require("../models/Employee");
 const Borrow = require("../models/Borrow");
+const BorrowDetail = require("../models/BorrowDetail");
 
 const getDashboard = async () => {
   const totalBooks = await Book.countDocuments();
@@ -19,7 +20,10 @@ const getDashboard = async () => {
   });
 
   const totalOverdue = await Borrow.countDocuments({
-    status: "late",
+    status: "borrowing",
+    dueDate: {
+      $lt: new Date(),
+    },
   });
 
   const booksUnavailable = await Book.countDocuments({
@@ -35,12 +39,12 @@ const getDashboard = async () => {
     })
     .limit(5);
 
-  const topBooks = await Borrow.aggregate([
+  const topBooks = await BorrowDetail.aggregate([
     {
       $group: {
         _id: "$book",
         totalBorrow: {
-          $sum: 1,
+          $sum: "$quantity",
         },
       },
     },

@@ -80,9 +80,13 @@ const login = async (data) => {
     },
   );
 
+  const employeeData = employee.toObject();
+
+  delete employeeData.password;
+
   return {
     token,
-    employee,
+    employee: employeeData,
   };
 };
 
