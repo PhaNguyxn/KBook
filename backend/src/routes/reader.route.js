@@ -6,16 +6,19 @@ const ReaderController = require("../controllers/ReaderController");
 
 const verifyToken = require("../middleware/auth.middleware");
 
-const { isAdmin } = require("../middleware/role.middleware");
+const { isAdmin, isStaffOrAdmin } = require("../middleware/role.middleware");
 
-router.get("/", ReaderController.getAllReaders);
+router.use(verifyToken);
 
-router.get("/:id", ReaderController.getReaderById);
+// Admin và staff được xem để lập phiếu
+router.get("/", isStaffOrAdmin, ReaderController.getAllReaders);
 
-router.post("/", verifyToken, isAdmin, ReaderController.createReader);
+router.get("/:id", isStaffOrAdmin, ReaderController.getReaderById);
 
-router.put("/:id", verifyToken, isAdmin, ReaderController.updateReader);
+router.post("/", isStaffOrAdmin, ReaderController.createReader);
 
-router.delete("/:id", verifyToken, isAdmin, ReaderController.deleteReader);
+router.put("/:id", isAdmin, ReaderController.updateReader);
+
+router.delete("/:id", isAdmin, ReaderController.deleteReader);
 
 module.exports = router;

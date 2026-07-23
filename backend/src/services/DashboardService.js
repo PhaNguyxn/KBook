@@ -1,95 +1,70 @@
 const Book = require("../models/Book");
 const Reader = require("../models/Reader");
-const Employee = require("../models/Employee");
 const Borrow = require("../models/Borrow");
-const BorrowDetail = require("../models/BorrowDetail");
 
-const getDashboard = async () => {
-  const totalBooks = await Book.countDocuments();
-
-  const totalReaders = await Reader.countDocuments();
-
-  const totalEmployees = await Employee.countDocuments();
-
-  const totalBorrowing = await Borrow.countDocuments({
-    status: "borrowing",
-  });
-
-  const totalReturned = await Borrow.countDocuments({
-    status: "returned",
-  });
-
-  const totalOverdue = await Borrow.countDocuments({
-    status: "borrowing",
-    dueDate: {
-      $lt: new Date(),
-    },
-  });
-
-  const booksUnavailable = await Book.countDocuments({
-    available: 0,
-  });
-
-  const recentBorrows = await Borrow.find()
-    .populate("book")
-    .populate("reader")
-    .populate("employee")
+function createRecentTransactionQuery() {
+  let query = Borrow.find({})
     .sort({
+      updatedAt: -1,
       createdAt: -1,
+      borrowDate: -1,
     })
-    .limit(5);
+    .limit(6);
 
-  const topBooks = await BorrowDetail.aggregate([
-    {
-      $group: {
-        _id: "$book",
-        totalBorrow: {
-          $sum: "$quantity",
-        },
+  
+  if (Borrow.schema.path("reader")) {
+    query = query.populate("reader", "readerCode fullName phone email");
+  } else if (Borrow.schema.path("readerId")) {
+    query = query.populate("readerId", "readerCode fullName phone email");
+  }
+
+  if (Borrow.schema.path("employee")) {
+    query = query.populate("employee", "employeeCode fullName username");
+  } else if (Borrow.schema.path("employeeId")) {
+    query = query.populate("employeeId", "employeeCode fullName username");
+  }
+
+  return query;
+}
+
+
+async function getDashboardData() {
+  const [
+    totalBooks,
+    totalReaders,
+    totalBorrowing,
+    totalReturned,
+    recentTransactions,
+  ] = await Promise.all([
+   
+    Book.countDocuments({}),
+
+    Reader.countDocuments({}),
+
+    Borrow.countDocuments({
+      status: {
+        $in: ["borrowing", "borrowed", "approved"],
       },
-    },
-    {
-      $sort: {
-        totalBorrow: -1,
+    }),
+
+    Borrow.countDocuments({
+      status: {
+        $in: ["returned", "completed"],
       },
-    },
-    {
-      $limit: 5,
-    },
-    {
-      $lookup: {
-        from: "books",
-        localField: "_id",
-        foreignField: "_id",
-        as: "book",
-      },
-    },
-    {
-      $unwind: "$book",
-    },
+    }),
+
+    createRecentTransactionQuery().lean(),
   ]);
 
   return {
     totalBooks,
-
     totalReaders,
-
-    totalEmployees,
-
     totalBorrowing,
-
     totalReturned,
-
-    totalOverdue,
-
-    booksUnavailable,
-
-    recentBorrows,
-
-    topBooks,
+    recentTransactions,
   };
-};
+}
 
 module.exports = {
-  getDashboard,
+  getDashboardData,
 };

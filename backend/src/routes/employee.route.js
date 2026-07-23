@@ -5,21 +5,20 @@ const router = express.Router();
 const EmployeeController = require("../controllers/EmployeeController");
 
 const verifyToken = require("../middleware/auth.middleware");
+
 const { isAdmin } = require("../middleware/role.middleware");
 
-// Lấy danh sách
-router.get("/", verifyToken, isAdmin, EmployeeController.getAllEmployees);
+router.use(verifyToken);
+router.use(isAdmin);
 
-// Lấy chi tiết
-router.get("/:id", verifyToken, isAdmin, EmployeeController.getEmployeeById);
+router.get("/", EmployeeController.getAllEmployees);
 
-// Thêm
-router.post("/", verifyToken, isAdmin, EmployeeController.createEmployee);
+router.get("/:id", EmployeeController.getEmployeeById);
 
-// Cập nhật
-router.put("/:id", verifyToken, isAdmin, EmployeeController.updateEmployee);
+router.post("/", EmployeeController.createEmployee);
 
-// Xóa mềm
-router.delete("/:id", verifyToken, isAdmin, EmployeeController.deleteEmployee);
+router.put("/:id", EmployeeController.updateEmployee);
+
+router.delete("/:id", EmployeeController.deleteEmployee);
 
 module.exports = router;

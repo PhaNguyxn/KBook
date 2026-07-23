@@ -1,35 +1,126 @@
-@import './base.css';
+:root {
+  font-family:
+    Inter, Arial, Helvetica, sans-serif;
 
+  color: #1f2937;
+  background: #eef5ff;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+  width: 100%;
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
 }
 
-a,
-.green {
+body {
+  background: #eef5ff;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+a {
+  color: inherit;
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
 }
 
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
-  }
+.page-title {
+  margin: 0;
+  color: #265bc6;
+  font-size: 22px;
+  font-weight: 700;
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
+.page-description {
+  margin: 5px 0 0;
+  color: #8a94a6;
+  font-size: 14px;
+}
 
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
+.content-card {
+  border: 0;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 3px 14px rgb(15 23 42 / 7%);
+}
+
+.form-control,
+.form-select {
+  min-height: 40px;
+  border-color: #dce3ee;
+  border-radius: 6px;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #4f8ff7;
+  box-shadow: 0 0 0 3px rgb(79 143 247 / 15%);
+}
+
+.btn-primary {
+  border-color: #3685f5;
+  background: #3685f5;
+}
+
+.btn-primary:hover {
+  border-color: #2675e4;
+  background: #2675e4;
+}
+
+.table {
+  margin-bottom: 0;
+}
+
+.table thead th {
+  padding: 12px 10px;
+  border-color: #dce3ee;
+  background: #49a0ed;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.table tbody td {
+  padding: 12px 10px;
+  border-color: #e8edf5;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.table tbody tr:hover {
+  background: #f7faff;
+}
+
+.status-active {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.status-inactive {
+  color: #dc2626;
+  font-weight: 600;
 }

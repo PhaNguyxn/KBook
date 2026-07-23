@@ -1,41 +1,33 @@
 const AuthService = require("../services/AuthService");
 
-const register = async (req, res) => {
-  try {
-    const employee = await AuthService.register(req.body);
-
-    res.status(201).json({
-      success: true,
-      message: "Đăng ký thành công",
-      data: employee,
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
 const login = async (req, res) => {
   try {
     const result = await AuthService.login(req.body);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Đăng nhập thành công",
       token: result.token,
       employee: result.employee,
     });
   } catch (error) {
-    res.status(400).json({
+    const statusCode = error.message === "Tài khoản đã bị khóa" ? 403 : 401;
+
+    return res.status(statusCode).json({
       success: false,
       message: error.message,
     });
   }
 };
 
+const getMe = async (req, res) => {
+  return res.status(200).json({
+    success: true,
+    data: req.user,
+  });
+};
+
 module.exports = {
-  register,
   login,
+  getMe,
 };

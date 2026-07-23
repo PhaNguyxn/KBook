@@ -1,22 +1,23 @@
 const DashboardService = require("../services/DashboardService");
 
-// Dashboard tổng quan
-const getDashboard = async (req, res) => {
+async function getDashboard(req, res) {
   try {
-    const dashboard = await DashboardService.getDashboard();
+    const data = await DashboardService.getDashboardData();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Lấy thống kê thành công",
-      data: dashboard,
+      message: "Lấy dữ liệu tổng quan thành công",
+      data,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Dashboard error:", error);
+
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Không thể tải dữ liệu tổng quan",
     });
   }
-};
+}
 
 module.exports = {
   getDashboard,

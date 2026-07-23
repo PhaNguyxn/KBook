@@ -1,8 +1,10 @@
 import http from "./http";
 
 export const publisherApi = {
-  getAll() {
-    return http.get("/publishers");
+  getAll(params = {}) {
+    return http.get("/publishers", {
+      params,
+    });
   },
 
   getById(id) {

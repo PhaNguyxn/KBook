@@ -1,36 +1,56 @@
-const multer = require("multer");
+const fs = require("fs");
 const path = require("path");
+const multer = require("multer");
+
+const uploadDirectory = path.join(process.cwd(), "uploads", "books");
+
+if (!fs.existsSync(uploadDirectory)) {
+  fs.mkdirSync(uploadDirectory, {
+    recursive: true,
+  });
+}
 
 const storage = multer.diskStorage({
-  destination(req, file, cb) {
-    cb(null, "uploads/");
+  destination(req, file, callback) {
+    callback(null, uploadDirectory);
   },
 
-  filename(req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1000000);
+  filename(req, file, callback) {
+    const extension = path.extname(file.originalname);
 
-    cb(null, "book-" + uniqueSuffix + path.extname(file.originalname));
+    const baseName = path
+      .basename(file.originalname, extension)
+      .replace(/[^a-zA-Z0-9-_]/g, "-");
+
+    const filename = `${Date.now()}-${baseName}${extension}`;
+
+    callback(null, filename);
   },
 });
 
-const fileFilter = (req, file, cb) => {
-  const allow = /jpg|jpeg|png|gif|webp/;
+const fileFilter = (req, file, callback) => {
+  const allowedMimeTypes = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+  ];
 
-  const ext = allow.test(path.extname(file.originalname).toLowerCase());
-
-  const mime = allow.test(file.mimetype);
-
-  if (ext && mime) {
-    cb(null, true);
-  } else {
-    cb(new Error("Chỉ được upload ảnh"));
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    callback(null, true);
+    return;
   }
+
+  callback(new Error("Chỉ được tải lên file ảnh"));
 };
 
-module.exports = multer({
+const bookUpload = multer({
   storage,
   fileFilter,
+
   limits: {
-    fileSize: 2 * 1024 * 1024,
+    fileSize: 5 * 1024 * 1024,
   },
 });
+
+module.exports = bookUpload;

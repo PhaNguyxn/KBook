@@ -1,28 +1,21 @@
 import { createRouter, createWebHistory } from "vue-router";
 
-import { pinia } from "@/stores/pinia";
-import { useAuthStore } from "@/stores/auth";
-
 import AdminLayout from "@/layouts/AdminLayout.vue";
 
-import LoginView from "@/views/auth/LoginView.vue";
 import DashboardView from "@/views/dashboard/DashboardView.vue";
-
 import BookListView from "@/views/books/BookListView.vue";
-import BookDetailView from "@/views/books/BookDetailView.vue";
 import BookFormView from "@/views/books/BookFormView.vue";
-
-import PublisherView from "@/views/publishers/PublisherView.vue";
-
+import BookDetailView from "@/views/books/BookDetailView.vue";
+import BorrowRequestView from "@/views/borrowRequests/BorrowRequestView.vue";
 import ReaderListView from "@/views/readers/ReaderListView.vue";
-import ReaderFormView from "@/views/readers/ReaderFormView.vue";
-
 import BorrowListView from "@/views/borrows/BorrowListView.vue";
-import BorrowCreateView from "@/views/borrows/BorrowCreateView.vue";
-import BorrowDetailView from "@/views/borrows/BorrowDetailView.vue";
-
 import EmployeeListView from "@/views/employees/EmployeeListView.vue";
-import EmployeeFormView from "@/views/employees/EmployeeFormView.vue";
+
+import LoginView from "@/views/auth/LoginView.vue";
+import ForbiddenView from "@/views/errors/ForbiddenView.vue";
+import NotFoundView from "@/views/errors/NotFoundView.vue";
+
+import { useAuthStore } from "@/stores/auth";
 
 const routes = [
   {
@@ -30,7 +23,6 @@ const routes = [
     name: "login",
     component: LoginView,
   },
-
   {
     path: "/",
     component: AdminLayout,
@@ -47,84 +39,30 @@ const routes = [
         name: "dashboard",
         component: DashboardView,
       },
-
       {
         path: "books",
         name: "books",
         component: BookListView,
       },
       {
-        path: "books/:id",
-        name: "book-detail",
-        component: BookDetailView,
+        path: "borrow-requests",
+        name: "borrow-requests",
+        component: BorrowRequestView,
       },
-      {
-        path: "books/create",
-        name: "book-create",
-        component: BookFormView,
-        meta: {
-          adminOnly: true,
-        },
-      },
-      {
-        path: "books/:id/edit",
-        name: "book-edit",
-        component: BookFormView,
-        meta: {
-          adminOnly: true,
-        },
-      },
-
       {
         path: "publishers",
-        name: "publishers",
-        component: PublisherView,
-        meta: {
-          adminOnly: true,
-        },
+        redirect: "/borrow-requests",
       },
-
       {
         path: "readers",
         name: "readers",
         component: ReaderListView,
-        meta: {
-          adminOnly: true,
-        },
       },
-      {
-        path: "readers/create",
-        name: "reader-create",
-        component: ReaderFormView,
-        meta: {
-          adminOnly: true,
-        },
-      },
-      {
-        path: "readers/:id/edit",
-        name: "reader-edit",
-        component: ReaderFormView,
-        meta: {
-          adminOnly: true,
-        },
-      },
-
       {
         path: "borrows",
         name: "borrows",
         component: BorrowListView,
       },
-      {
-        path: "borrows/create",
-        name: "borrow-create",
-        component: BorrowCreateView,
-      },
-      {
-        path: "borrows/:id",
-        name: "borrow-detail",
-        component: BorrowDetailView,
-      },
-
       {
         path: "employees",
         name: "employees",
@@ -134,27 +72,36 @@ const routes = [
         },
       },
       {
-        path: "employees/create",
-        name: "employee-create",
-        component: EmployeeFormView,
-        meta: {
-          adminOnly: true,
-        },
+        path: "/books",
+        name: "books",
+        component: BookListView,
       },
       {
-        path: "employees/:id/edit",
-        name: "employee-edit",
-        component: EmployeeFormView,
-        meta: {
-          adminOnly: true,
-        },
+        path: "/books/create",
+        name: "book-create",
+        component: BookFormView,
+      },
+      {
+        path: "/books/:id",
+        name: "book-detail",
+        component: BookDetailView,
+      },
+      {
+        path: "/books/:id/edit",
+        name: "book-edit",
+        component: BookFormView,
       },
     ],
   },
-
+  {
+    path: "/403",
+    name: "forbidden",
+    component: ForbiddenView,
+  },
   {
     path: "/:pathMatch(.*)*",
-    redirect: "/dashboard",
+    name: "not-found",
+    component: NotFoundView,
   },
 ];
 
@@ -164,23 +111,30 @@ const router = createRouter({
 });
 
 router.beforeEach((to) => {
-  const authStore = useAuthStore(pinia);
+  const authStore = useAuthStore();
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
+
+  const adminOnly = to.matched.some((record) => record.meta.adminOnly);
+
+  if (requiresAuth && !authStore.isAuthenticated) {
     return {
       name: "login",
-    };
-  }
-
-  if (to.meta.adminOnly && !authStore.isAdmin) {
-    return {
-      name: "dashboard",
+      query: {
+        redirect: to.fullPath,
+      },
     };
   }
 
   if (to.name === "login" && authStore.isAuthenticated) {
     return {
       name: "dashboard",
+    };
+  }
+
+  if (adminOnly && !authStore.isAdmin) {
+    return {
+      name: "forbidden",
     };
   }
 

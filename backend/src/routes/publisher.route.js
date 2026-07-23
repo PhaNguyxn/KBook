@@ -6,21 +6,18 @@ const PublisherController = require("../controllers/PublisherController");
 
 const verifyToken = require("../middleware/auth.middleware");
 
-const { isAdmin } = require("../middleware/role.middleware");
+const { isAdmin, isStaffOrAdmin } = require("../middleware/role.middleware");
 
-router.get("/", PublisherController.getAllPublishers);
+router.use(verifyToken);
 
-router.get("/:id", PublisherController.getPublisherById);
+router.get("/", isStaffOrAdmin, PublisherController.getAllPublishers);
 
-router.post("/", verifyToken, isAdmin, PublisherController.createPublisher);
+router.get("/:id", isStaffOrAdmin, PublisherController.getPublisherById);
 
-router.put("/:id", verifyToken, isAdmin, PublisherController.updatePublisher);
+router.post("/", isAdmin, PublisherController.createPublisher);
 
-router.delete(
-  "/:id",
-  verifyToken,
-  isAdmin,
-  PublisherController.deletePublisher,
-);
+router.put("/:id", isAdmin, PublisherController.updatePublisher);
+
+router.delete("/:id", isAdmin, PublisherController.deletePublisher);
 
 module.exports = router;

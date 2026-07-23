@@ -1,21 +1,29 @@
-const isAdmin = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: "Chưa đăng nhập",
-    });
-  }
+const authorizeRoles = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Bạn chưa đăng nhập",
+      });
+    }
 
-  if (req.user.role !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Bạn không có quyền thực hiện chức năng này",
-    });
-  }
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền thực hiện chức năng này",
+      });
+    }
 
-  next();
+    next();
+  };
 };
 
+const isAdmin = authorizeRoles("admin");
+
+const isStaffOrAdmin = authorizeRoles("admin", "staff");
+
 module.exports = {
+  authorizeRoles,
   isAdmin,
+  isStaffOrAdmin,
 };

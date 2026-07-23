@@ -1,102 +1,122 @@
 const BookService = require("../services/BookService");
 
-const getAllBooks = async (req, res) => {
+function buildBookPayload(req) {
+  const payload = {
+    ...req.body,
+  };
+
+  if (req.file) {
+    payload.image = `/uploads/books/${req.file.filename}`;
+  }
+
+  if (payload.publicationYear === "") {
+    delete payload.publicationYear;
+  }
+
+  return payload;
+}
+
+async function getAllBooks(req, res) {
   try {
     const result = await BookService.getAllBooks(req.query);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Lấy danh sách sách thành công",
       data: result,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Get books error:", error);
+
+    return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Không thể lấy danh sách sách",
     });
   }
-};
+}
 
-const createBook = async (req, res) => {
+async function getBookById(req, res) {
   try {
-    const book = await BookService.createBook(req.body, req.file);
+    const book = await BookService.getBookById(req.params.id);
 
-    res.status(201).json({
+    return res.status(200).json({
+      success: true,
+      message: "Lấy chi tiết sách thành công",
+      data: book,
+    });
+  } catch (error) {
+    return res.status(404).json({
+      success: false,
+      message: error.message || "Không tìm thấy sách",
+    });
+  }
+}
+
+async function createBook(req, res) {
+  try {
+    const payload = buildBookPayload(req);
+
+    const book = await BookService.createBook(payload);
+
+    return res.status(201).json({
       success: true,
       message: "Thêm sách thành công",
       data: book,
     });
-  } catch (err) {
-    res.status(400).json({
+  } catch (error) {
+    console.error("Create book error:", error);
+
+    return res.status(400).json({
       success: false,
-      message: err.message,
+      message: error.message || "Không thể thêm sách",
     });
   }
-};
+}
 
-const getBookById = async (req, res) => {
+async function updateBook(req, res) {
   try {
-    const book = await BookService.getBookById(req.params.id);
+    const payload = buildBookPayload(req);
 
-    res.json({
-      success: true,
+    const book = await BookService.updateBook(req.params.id, payload);
 
-      data: book,
-    });
-  } catch (err) {
-    res.status(404).json({
-      message: err.message,
-    });
-  }
-};
-
-const updateBook = async (req, res) => {
-  try {
-    const book = await BookService.updateBook(
-      req.params.id,
-      req.body,
-      req.file,
-    );
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Cập nhật sách thành công",
       data: book,
     });
   } catch (error) {
-    res.status(400).json({
+    console.error("Update book error:", error);
+
+    return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Không thể cập nhật sách",
     });
   }
-};
+}
 
-const deleteBook = async (req, res) => {
+async function deleteBook(req, res) {
   try {
-    await BookService.deleteBook(req.params.id);
+    const book = await BookService.deleteBook(req.params.id);
 
-    res.json({
+    return res.status(200).json({
       success: true,
-
-      message: "Xóa thành công",
+      message: "Xóa sách thành công",
+      data: book,
     });
-  } catch (err) {
-    res.status(400).json({
-      message: err.message,
+  } catch (error) {
+    console.error("Delete book error:", error);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Không thể xóa sách",
     });
   }
-};
-
+}
 
 module.exports = {
   getAllBooks,
-
   getBookById,
-
   createBook,
-
   updateBook,
-
   deleteBook,
-
 };

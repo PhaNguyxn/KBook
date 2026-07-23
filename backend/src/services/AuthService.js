@@ -2,86 +2,43 @@ const Employee = require("../models/Employee");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
-// Đăng ký nhân viên
-const register = async (data) => {
-  const {
-    employeeCode,
-    fullName,
-    email,
-    password,
-    phone,
-    birthday,
-    gender,
-    address,
-    role,
-  } = data;
-
-  const employeeExist = await Employee.findOne({ employeeCode });
-
-  if (employeeExist) {
-    throw new Error("Mã nhân viên đã tồn tại");
-  }
-
-  const emailExist = await Employee.findOne({ email });
-
-  if (emailExist) {
-    throw new Error("Email đã tồn tại");
-  }
-
-  const phoneExist = await Employee.findOne({ phone });
-
-  if (phoneExist) {
-    throw new Error("Số điện thoại đã tồn tại");
-  }
-
-  const hashPassword = await bcrypt.hash(password, 10);
-
-  const employee = await Employee.create({
-    employeeCode,
-    fullName,
-    email,
-    password: hashPassword,
-    phone,
-    birthday,
-    gender,
-    address,
-    role,
-  });
-
-  return employee;
-};
-
-// Đăng nhập
 const login = async (data) => {
-  const { employeeCode, password } = data;
+  const employeeCode = data.employeeCode?.trim();
+  const password = data.password;
+
+  if (!employeeCode || !password) {
+    throw new Error("Vui lòng nhập mã nhân viên và mật khẩu");
+  }
 
   const employee = await Employee.findOne({
     employeeCode,
-  });
+  }).select("+password");
 
   if (!employee) {
-    throw new Error("Tài khoản không tồn tại");
+    throw new Error("Mã nhân viên hoặc mật khẩu không đúng");
   }
 
-  const check = await bcrypt.compare(password, employee.password);
+  const passwordMatched = await bcrypt.compare(password, employee.password);
 
-  if (!check) {
-    throw new Error("Sai mật khẩu");
+  if (!passwordMatched) {
+    throw new Error("Mã nhân viên hoặc mật khẩu không đúng");
+  }
+
+  if (!employee.status) {
+    throw new Error("Tài khoản đã bị khóa");
   }
 
   const token = jwt.sign(
     {
-      id: employee._id,
-      role: employee.role,
+      id: employee._id.toString(),
     },
     process.env.JWT_SECRET,
     {
-      expiresIn: process.env.JWT_EXPIRE,
+      expiresIn: process.env.JWT_EXPIRE || "1d",
     },
   );
 
   const employeeData = employee.toObject();
-
   delete employeeData.password;
 
   return {
@@ -91,6 +48,5 @@ const login = async (data) => {
 };
 
 module.exports = {
-  register,
   login,
 };

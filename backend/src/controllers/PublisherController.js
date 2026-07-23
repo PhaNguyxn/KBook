@@ -1,59 +1,72 @@
 const PublisherService = require("../services/PublisherService");
 
-// GET ALL
+// ==================================================
+// GET /api/publishers
+// ==================================================
 const getAllPublishers = async (req, res) => {
   try {
-    const publishers = await PublisherService.getAllPublishers();
+    const result = await PublisherService.getAllPublishers(req.query);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Lấy danh sách nhà xuất bản thành công",
-      data: publishers,
+      data: result,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Get publishers error:", error);
+
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Không thể lấy danh sách nhà xuất bản",
     });
   }
 };
 
-// GET BY ID
+// ==================================================
+// GET /api/publishers/:id
+// ==================================================
 const getPublisherById = async (req, res) => {
   try {
     const publisher = await PublisherService.getPublisherById(req.params.id);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
+      message: "Lấy thông tin nhà xuất bản thành công",
       data: publisher,
     });
   } catch (error) {
-    res.status(404).json({
+    return res.status(404).json({
       success: false,
-      message: error.message,
+      message: error.message || "Không tìm thấy nhà xuất bản",
     });
   }
 };
 
-// CREATE
+// ==================================================
+// POST /api/publishers
+// ==================================================
 const createPublisher = async (req, res) => {
   try {
     const publisher = await PublisherService.createPublisher(req.body);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Thêm nhà xuất bản thành công",
       data: publisher,
     });
   } catch (error) {
-    res.status(400).json({
+    console.error("Create publisher error:", error);
+
+    return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Không thể thêm nhà xuất bản",
     });
   }
 };
 
-// UPDATE
+// ==================================================
+// PUT /api/publishers/:id
+// ==================================================
 const updatePublisher = async (req, res) => {
   try {
     const publisher = await PublisherService.updatePublisher(
@@ -61,32 +74,39 @@ const updatePublisher = async (req, res) => {
       req.body,
     );
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Cập nhật nhà xuất bản thành công",
       data: publisher,
     });
   } catch (error) {
-    res.status(400).json({
+    console.error("Update publisher error:", error);
+
+    return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Không thể cập nhật nhà xuất bản",
     });
   }
 };
 
-// DELETE
+// ==================================================
+// DELETE /api/publishers/:id
+// ==================================================
 const deletePublisher = async (req, res) => {
   try {
-    await PublisherService.deletePublisher(req.params.id);
+    const publisher = await PublisherService.deletePublisher(req.params.id);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Xóa nhà xuất bản thành công",
+      message: "Khóa nhà xuất bản thành công",
+      data: publisher,
     });
   } catch (error) {
-    res.status(400).json({
+    console.error("Delete publisher error:", error);
+
+    return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Không thể khóa nhà xuất bản",
     });
   }
 };

@@ -6,12 +6,17 @@ const BorrowController = require("../controllers/BorrowController");
 
 const verifyToken = require("../middleware/auth.middleware");
 
-router.get("/", verifyToken, BorrowController.getAllBorrows);
+const { isStaffOrAdmin } = require("../middleware/role.middleware");
 
-router.get("/:id", verifyToken, BorrowController.getBorrowById);
+router.use(verifyToken);
+router.use(isStaffOrAdmin);
 
-router.post("/", verifyToken, BorrowController.createBorrow);
+router.get("/", BorrowController.getAllBorrows);
 
-router.put("/:id/return", verifyToken, BorrowController.returnBorrow);
+router.get("/:id", BorrowController.getBorrowById);
+
+router.post("/", BorrowController.createBorrow);
+
+router.put("/:id/return", BorrowController.returnBorrow);
 
 module.exports = router;
