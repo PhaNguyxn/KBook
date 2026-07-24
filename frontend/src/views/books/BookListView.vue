@@ -93,7 +93,11 @@ const visiblePages = computed(() => {
 
   const pages = [1];
 
-  let start = Math.max(current - 2, 2);
+  let start = Math.max(
+    current - 2,
+    2,
+  );
+
   let end = Math.min(
     current + 2,
     total - 1,
@@ -144,7 +148,8 @@ const firstDisplayedRecord = computed(() => {
 
 const lastDisplayedRecord = computed(() => {
   return Math.min(
-    pagination.page * pagination.limit,
+    pagination.page *
+      pagination.limit,
     pagination.total,
   );
 });
@@ -239,7 +244,9 @@ function getBorrowedQuantity(book) {
 }
 
 function getAvailablePercent(book) {
-  const total = getTotalQuantity(book);
+  const total =
+    getTotalQuantity(book);
+
   const available =
     getAvailableQuantity(book);
 
@@ -257,7 +264,6 @@ function getAvailablePercent(book) {
 }
 
 function getStockStatus(book) {
-
   const available =
     getAvailableQuantity(book);
 
@@ -273,7 +279,8 @@ function getStockStatus(book) {
     return {
       label: "Sắp hết",
       className: "stock-low",
-      icon: "bi-exclamation-circle-fill",
+      icon:
+        "bi-exclamation-circle-fill",
     };
   }
 
@@ -285,7 +292,6 @@ function getStockStatus(book) {
 }
 
 function getProgressClass(book) {
-
   const available =
     getAvailableQuantity(book);
 
@@ -324,8 +330,25 @@ function getBookCategory(book) {
   );
 }
 
+function formatPrice(value) {
+  const price = Number(value);
+
+  if (!Number.isFinite(price)) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat(
+    "vi-VN",
+    {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    },
+  ).format(price);
+}
+
 /* =========================================
-   TẢI DỮ LIỆU
+   TẢI NHÀ XUẤT BẢN
 ========================================= */
 
 async function loadPublishers() {
@@ -336,7 +359,6 @@ async function loadPublishers() {
       await publisherApi.getAll({
         page: 1,
         limit: 100,
-        status: true,
         sort: "name-asc",
       });
 
@@ -359,10 +381,16 @@ async function loadPublishers() {
       "Load publishers error:",
       error,
     );
+
+    publishers.value = [];
   } finally {
     loadingPublishers.value = false;
   }
 }
+
+/* =========================================
+   TẢI DANH SÁCH SÁCH
+========================================= */
 
 async function loadBooks() {
   loading.value = true;
@@ -387,7 +415,8 @@ async function loadBooks() {
           undefined,
 
         sort:
-          filters.sort || undefined,
+          filters.sort ||
+          undefined,
       });
 
     const payload =
@@ -398,15 +427,27 @@ async function loadBooks() {
     if (Array.isArray(payload)) {
       books.value = payload;
 
-      Object.assign(pagination, {
-        total: payload.length,
-        page: 1,
-        limit: payload.length || 10,
-        totalPages:
-          payload.length > 0 ? 1 : 0,
-        hasPreviousPage: false,
-        hasNextPage: false,
-      });
+      Object.assign(
+        pagination,
+        {
+          total:
+            payload.length,
+
+          page: 1,
+
+          limit:
+            payload.length ||
+            10,
+
+          totalPages:
+            payload.length > 0
+              ? 1
+              : 0,
+
+          hasPreviousPage: false,
+          hasNextPage: false,
+        },
+      );
 
       return;
     }
@@ -418,7 +459,8 @@ async function loadBooks() {
       [];
 
     const pageData =
-      payload.pagination || {};
+      payload.pagination ||
+      {};
 
     const total =
       Number(
@@ -442,25 +484,33 @@ async function loadBooks() {
     const totalPages =
       Number(
         pageData.totalPages ??
-          Math.ceil(total / limit),
+          Math.ceil(
+            total / limit,
+          ),
       ) || 0;
 
-    Object.assign(pagination, {
-      total,
-      page,
-      limit,
-      totalPages,
+    Object.assign(
+      pagination,
+      {
+        total,
+        page,
+        limit,
+        totalPages,
 
-      hasPreviousPage:
-        pageData.hasPreviousPage ??
-        page > 1,
+        hasPreviousPage:
+          pageData
+            .hasPreviousPage ??
+          page > 1,
 
-      hasNextPage:
-        pageData.hasNextPage ??
-        page < totalPages,
-    });
+        hasNextPage:
+          pageData
+            .hasNextPage ??
+          page < totalPages,
+      },
+    );
 
-    filters.page = pagination.page;
+    filters.page =
+      pagination.page;
   } catch (error) {
     console.error(
       "Load books error:",
@@ -484,11 +534,14 @@ async function loadBooks() {
 ========================================= */
 
 function searchBooks() {
+  clearMessages();
   filters.page = 1;
   loadBooks();
 }
 
 function resetFilters() {
+  clearMessages();
+
   filters.keyword = "";
   filters.category = "";
   filters.publisher = "";
@@ -500,11 +553,13 @@ function resetFilters() {
 }
 
 function handleLimitChange() {
+  clearMessages();
   filters.page = 1;
   loadBooks();
 }
 
 function handleFilterChange() {
+  clearMessages();
   filters.page = 1;
   loadBooks();
 }
@@ -514,18 +569,24 @@ function handleFilterChange() {
 ========================================= */
 
 function changePage(page) {
-  const nextPage = Number(page);
+  const nextPage =
+    Number(page);
 
   if (
-    !Number.isInteger(nextPage) ||
+    !Number.isInteger(
+      nextPage,
+    ) ||
     nextPage < 1 ||
-    nextPage > pagination.totalPages ||
-    nextPage === pagination.page
+    nextPage >
+      pagination.totalPages ||
+    nextPage ===
+      pagination.page
   ) {
     return;
   }
 
-  filters.page = nextPage;
+  filters.page =
+    nextPage;
 
   loadBooks();
 
@@ -535,26 +596,45 @@ function changePage(page) {
   });
 }
 
+/* =========================================
+   XÓA SÁCH
+========================================= */
 
 async function deleteBook(book) {
-  const confirmed = window.confirm(
-    `Bạn có chắc muốn xóa sách "${getBookTitle(
-      book,
-    )}"?`,
-  );
+  const confirmed =
+    window.confirm(
+      `Bạn có chắc muốn xóa sách "${getBookTitle(
+        book,
+      )}"?`,
+    );
 
   if (!confirmed) {
     return;
   }
 
   clearMessages();
-  processingId.value = book._id;
+
+  processingId.value =
+    book._id;
 
   try {
-    await bookApi.delete(book._id);
+    await bookApi.delete(
+      book._id,
+    );
 
     successMessage.value =
       "Xóa sách thành công";
+
+    /*
+     * Nếu trang hiện tại chỉ còn
+     * một sách thì quay lại trang trước.
+     */
+    if (
+      books.value.length === 1 &&
+      filters.page > 1
+    ) {
+      filters.page -= 1;
+    }
 
     await loadBooks();
   } catch (error) {
@@ -568,6 +648,10 @@ async function deleteBook(book) {
   }
 }
 
+/* =========================================
+   KHỞI TẠO TRANG
+========================================= */
+
 onMounted(async () => {
   await Promise.all([
     loadPublishers(),
@@ -578,8 +662,7 @@ onMounted(async () => {
 
 <template>
   <section class="book-page">
-
-    <!-- Thông báo -->
+    <!-- Thông báo lỗi -->
     <div
       v-if="errorMessage"
       class="alert alert-danger"
@@ -592,6 +675,7 @@ onMounted(async () => {
       {{ errorMessage }}
     </div>
 
+    <!-- Thông báo thành công -->
     <div
       v-if="successMessage"
       class="alert alert-success"
@@ -627,23 +711,29 @@ onMounted(async () => {
         class="filter-grid"
         @submit.prevent="searchBooks"
       >
+        <!-- Từ khóa -->
         <div class="search-field">
           <label for="bookKeyword">
             Tìm kiếm sách
           </label>
 
-          <div class="input-icon-wrapper">
+          <div
+            class="input-icon-wrapper"
+          >
             <i class="bi bi-search" />
 
             <input
               id="bookKeyword"
-              v-model="filters.keyword"
+              v-model="
+                filters.keyword
+              "
               type="search"
-              placeholder="Nhập mã sách, tên sách hoặc tác giả..."
+              placeholder="Nhập mã sách, tên sách, tác giả hoặc thể loại..."
             />
           </div>
         </div>
 
+        <!-- Thể loại -->
         <div>
           <label for="bookCategory">
             Thể loại
@@ -651,13 +741,16 @@ onMounted(async () => {
 
           <input
             id="bookCategory"
-            v-model="filters.category"
+            v-model="
+              filters.category
+            "
             type="text"
             class="custom-input"
             placeholder="Ví dụ: Công nghệ"
           />
         </div>
 
+        <!-- Nhà xuất bản -->
         <div>
           <label for="bookPublisher">
             Nhà xuất bản
@@ -665,10 +758,16 @@ onMounted(async () => {
 
           <select
             id="bookPublisher"
-            v-model="filters.publisher"
+            v-model="
+              filters.publisher
+            "
             class="custom-select"
-            :disabled="loadingPublishers"
-            @change="handleFilterChange"
+            :disabled="
+              loadingPublishers
+            "
+            @change="
+              handleFilterChange
+            "
           >
             <option value="">
               Tất cả nhà xuất bản
@@ -687,6 +786,7 @@ onMounted(async () => {
           </select>
         </div>
 
+        <!-- Sắp xếp -->
         <div>
           <label for="bookSort">
             Sắp xếp
@@ -696,7 +796,9 @@ onMounted(async () => {
             id="bookSort"
             v-model="filters.sort"
             class="custom-select"
-            @change="handleFilterChange"
+            @change="
+              handleFilterChange
+            "
           >
             <option value="latest">
               Mới nhất
@@ -714,16 +816,29 @@ onMounted(async () => {
               Tên Z–A
             </option>
 
-            <option value="available-desc">
+            <option value="price-desc">
+              Giá giảm dần
+            </option>
+
+            <option value="price-asc">
+              Giá tăng dần
+            </option>
+
+            <option
+              value="available-desc"
+            >
               Số lượng giảm dần
             </option>
 
-            <option value="available-asc">
+            <option
+              value="available-asc"
+            >
               Số lượng tăng dần
             </option>
           </select>
         </div>
 
+        <!-- Số dòng -->
         <div>
           <label for="bookLimit">
             Số dòng
@@ -731,9 +846,13 @@ onMounted(async () => {
 
           <select
             id="bookLimit"
-            v-model.number="filters.limit"
+            v-model.number="
+              filters.limit
+            "
             class="custom-select"
-            @change="handleLimitChange"
+            @change="
+              handleLimitChange
+            "
           >
             <option :value="5">
               5 dòng
@@ -752,17 +871,22 @@ onMounted(async () => {
             </option>
           </select>
         </div>
-        
+
+        <!-- Đặt lại -->
         <button
           type="button"
           class="reset-filter-button"
           :disabled="loading"
           @click="resetFilters"
         >
-          <i class="bi bi-arrow-counterclockwise" />
+          <i
+            class="bi bi-arrow-counterclockwise"
+          />
+
           Đặt lại
         </button>
 
+        <!-- Tìm kiếm -->
         <button
           type="submit"
           class="search-button"
@@ -781,15 +905,15 @@ onMounted(async () => {
 
     <!-- Bảng sách -->
     <div class="book-table-card">
-      <div class="table-card-header">
+      <div
+        class="table-card-header"
+      >
         <div>
-          <h2>
-            Danh sách sách
-          </h2>
+          <h2>Danh sách sách</h2>
         </div>
       </div>
 
-      <!-- Loading -->
+      <!-- Đang tải -->
       <div
         v-if="loading"
         class="loading-state"
@@ -810,7 +934,7 @@ onMounted(async () => {
         </span>
       </div>
 
-      <!-- Bảng -->
+      <!-- Bảng dữ liệu -->
       <div
         v-else
         class="table-responsive"
@@ -823,10 +947,19 @@ onMounted(async () => {
               </th>
 
               <th>Sách</th>
-              <th>Nhà xuất bản</th>
+
+              <th>
+                Nhà xuất bản
+              </th>
+
               <th>Thể loại</th>
+
+              <th>Đơn giá</th>
+
               <th>Tồn kho</th>
+
               <th>Trạng thái</th>
+
               <th class="action-column">
                 Thao tác
               </th>
@@ -841,9 +974,11 @@ onMounted(async () => {
               ) in books"
               :key="book._id"
             >
+              <!-- STT -->
               <td class="stt-cell">
                 {{
-                  (pagination.page - 1) *
+                  (pagination.page -
+                    1) *
                     pagination.limit +
                   index +
                   1
@@ -852,15 +987,29 @@ onMounted(async () => {
 
               <!-- Thông tin sách -->
               <td>
-                <div class="book-information">
+                <div
+                  class="book-information"
+                >
                   <div class="book-cover">
                     <img
                       v-if="
-                        getBookImage(book) &&
-                        !imageErrors[book._id]
+                        getBookImage(
+                          book,
+                        ) &&
+                        !imageErrors[
+                          book._id
+                        ]
                       "
-                      :src="getBookImage(book)"
-                      :alt="getBookTitle(book)"
+                      :src="
+                        getBookImage(
+                          book,
+                        )
+                      "
+                      :alt="
+                        getBookTitle(
+                          book,
+                        )
+                      "
                       @error="
                         markImageError(
                           book._id,
@@ -879,18 +1028,30 @@ onMounted(async () => {
                   </div>
 
                   <div class="book-text">
-                    <span class="book-code">
-                      {{ getBookCode(book) }}
+                    <span
+                      class="book-code"
+                    >
+                      {{
+                        getBookCode(
+                          book,
+                        )
+                      }}
                     </span>
 
                     <RouterLink
                       :to="`/books/${book._id}`"
                       class="book-title"
                     >
-                      {{ getBookTitle(book) }}
+                      {{
+                        getBookTitle(
+                          book,
+                        )
+                      }}
                     </RouterLink>
 
-                    <span class="book-author">
+                    <span
+                      class="book-author"
+                    >
                       <i
                         class="bi bi-person"
                       />
@@ -900,47 +1061,71 @@ onMounted(async () => {
                         "Chưa cập nhật tác giả"
                       }}
                     </span>
-
-                    <span
-                      v-if="book.isbn"
-                      class="book-isbn"
-                    >
-                      ISBN: {{ book.isbn }}
-                    </span>
                   </div>
                 </div>
               </td>
 
               <!-- Nhà xuất bản -->
               <td>
-                <div class="publisher-information">
-                  <div class="publisher-icon">
+                <div
+                  class="publisher-information"
+                >
+                  <div
+                    class="publisher-icon"
+                  >
                     <i
                       class="bi bi-building"
                     />
                   </div>
 
                   <span>
-                    {{ getPublisherName(book) }}
+                    {{
+                      getPublisherName(
+                        book,
+                      )
+                    }}
                   </span>
                 </div>
               </td>
 
               <!-- Thể loại -->
               <td>
-                <span class="category-badge">
+                <span
+                  class="category-badge"
+                >
                   <i
                     class="bi bi-tag-fill"
                   />
 
-                  {{ getBookCategory(book) }}
+                  {{
+                    getBookCategory(
+                      book,
+                    )
+                  }}
+                </span>
+              </td>
+
+              <!-- Đơn giá -->
+              <td>
+                <span
+                  class="book-price"
+                >
+                  {{
+                    formatPrice(
+                      book.price,
+                    )
+                  }}
                 </span>
               </td>
 
               <!-- Tồn kho -->
               <td>
-                <div class="stock-information">
-                  <div class="stock-number">
+                <div
+                  class="stock-information"
+                >
+                  <div
+                    class="stock-number"
+                  >
                     <strong>
                       {{
                         getAvailableQuantity(
@@ -959,11 +1144,15 @@ onMounted(async () => {
                     </span>
                   </div>
 
-                  <div class="stock-progress">
+                  <div
+                    class="stock-progress"
+                  >
                     <div
                       class="stock-progress-value"
                       :class="
-                        getProgressClass(book)
+                        getProgressClass(
+                          book,
+                        )
                       "
                       :style="{
                         width:
@@ -990,34 +1179,41 @@ onMounted(async () => {
                 <span
                   class="stock-status"
                   :class="
-                    getStockStatus(book)
-                      .className
+                    getStockStatus(
+                      book,
+                    ).className
                   "
                 >
                   <i
                     class="bi"
                     :class="
-                      getStockStatus(book)
-                        .icon
+                      getStockStatus(
+                        book,
+                      ).icon
                     "
                   />
 
                   {{
-                    getStockStatus(book)
-                      .label
+                    getStockStatus(
+                      book,
+                    ).label
                   }}
                 </span>
               </td>
 
               <!-- Thao tác -->
               <td>
-                <div class="action-buttons">
+                <div
+                  class="action-buttons"
+                >
                   <RouterLink
                     :to="`/books/${book._id}`"
                     class="action-button action-view"
                     title="Xem chi tiết"
                   >
-                    <i class="bi bi-eye" />
+                    <i
+                      class="bi bi-eye"
+                    />
                   </RouterLink>
 
                   <RouterLink
@@ -1037,24 +1233,46 @@ onMounted(async () => {
                     class="action-button action-delete"
                     title="Xóa sách"
                     :disabled="
-                      processingId === book._id
+                      processingId ===
+                      book._id
                     "
-                    @click="deleteBook(book)"
+                    @click="
+                      deleteBook(book)
+                    "
                   >
-                    <i class="bi bi-trash3" />
+                    <span
+                      v-if="
+                        processingId ===
+                        book._id
+                      "
+                      class="spinner-border spinner-border-sm"
+                    />
+
+                    <i
+                      v-else
+                      class="bi bi-trash3"
+                    />
                   </button>
                 </div>
               </td>
             </tr>
 
             <!-- Không có dữ liệu -->
-            <tr v-if="books.length === 0">
+            <tr
+              v-if="
+                books.length === 0
+              "
+            >
               <td
-                colspan="7"
+                colspan="8"
                 class="empty-table-cell"
               >
-                <div class="empty-state">
-                  <div class="empty-icon">
+                <div
+                  class="empty-state"
+                >
+                  <div
+                    class="empty-icon"
+                  >
                     <i
                       class="bi bi-journal-x"
                     />
@@ -1065,14 +1283,17 @@ onMounted(async () => {
                   </h3>
 
                   <p>
-                    Không có đầu sách phù hợp với
-                    điều kiện tìm kiếm hiện tại.
+                    Không có đầu sách phù
+                    hợp với điều kiện tìm
+                    kiếm hiện tại.
                   </p>
 
                   <button
                     type="button"
                     class="empty-reset-button"
-                    @click="resetFilters"
+                    @click="
+                      resetFilters
+                    "
                   >
                     <i
                       class="bi bi-arrow-counterclockwise"
@@ -1095,17 +1316,23 @@ onMounted(async () => {
         "
         class="pagination-container"
       >
-        <div class="pagination-information">
+        <div
+          class="pagination-information"
+        >
           Hiển thị
 
           <strong>
-            {{ firstDisplayedRecord }}
+            {{
+              firstDisplayedRecord
+            }}
           </strong>
 
           đến
 
           <strong>
-            {{ lastDisplayedRecord }}
+            {{
+              lastDisplayedRecord
+            }}
           </strong>
 
           trong tổng số
@@ -1125,12 +1352,14 @@ onMounted(async () => {
             type="button"
             class="page-button"
             :disabled="
-              !pagination.hasPreviousPage
+              !pagination
+                .hasPreviousPage
             "
             title="Trang trước"
             @click="
               changePage(
-                pagination.page - 1,
+                pagination.page -
+                  1,
               )
             "
           >
@@ -1145,8 +1374,10 @@ onMounted(async () => {
           >
             <span
               v-if="
-                page === 'left-dots' ||
-                page === 'right-dots'
+                page ===
+                  'left-dots' ||
+                page ===
+                  'right-dots'
               "
               class="page-dots"
             >
@@ -1162,7 +1393,9 @@ onMounted(async () => {
                   page ===
                   pagination.page,
               }"
-              @click="changePage(page)"
+              @click="
+                changePage(page)
+              "
             >
               {{ page }}
             </button>
@@ -1172,12 +1405,14 @@ onMounted(async () => {
             type="button"
             class="page-button"
             :disabled="
-              !pagination.hasNextPage
+              !pagination
+                .hasNextPage
             "
             title="Trang sau"
             @click="
               changePage(
-                pagination.page + 1,
+                pagination.page +
+                  1,
               )
             "
           >
@@ -1201,6 +1436,10 @@ onMounted(async () => {
   gap: 22px;
 }
 
+/* =========================================
+   NÚT THÊM SÁCH
+========================================= */
+
 .add-book-button {
   height: 43px;
   padding: 0 17px;
@@ -1215,21 +1454,25 @@ onMounted(async () => {
     #438df8,
     #2563eb
   );
-  color: #ffffff;
+  color: #fff;
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
-  box-shadow: 0 8px 18px rgb(37 99 235 / 20%);
+  box-shadow:
+    0 8px 18px
+    rgb(37 99 235 / 20%);
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease;
 }
 
 .add-book-button:hover {
-  color: #ffffff;
+  color: #fff;
   transform: translateY(-2px);
-  box-shadow: 0 11px 23px rgb(37 99 235 / 26%);
+  box-shadow:
+    0 11px 23px
+    rgb(37 99 235 / 26%);
 }
 
 /* =========================================
@@ -1240,7 +1483,7 @@ onMounted(async () => {
 .book-table-card {
   border: 1px solid #e7edf5;
   border-radius: 21px;
-  background: #ffffff;
+  background: #fff;
   box-shadow:
     0 10px 28px
     rgb(15 23 42 / 6%);
@@ -1253,7 +1496,8 @@ onMounted(async () => {
 .filter-heading {
   margin-bottom: 20px;
   display: flex;
-  justify-content: space-between;
+  justify-content:
+    space-between;
   align-items: center;
   gap: 17px;
 }
@@ -1281,8 +1525,8 @@ onMounted(async () => {
 }
 
 .filter-grid label {
-  display: block;
   margin-bottom: 7px;
+  display: block;
   color: #475569;
   font-size: 11px;
   font-weight: 800;
@@ -1307,7 +1551,7 @@ onMounted(async () => {
   height: 43px;
   border: 1px solid #dce5f0;
   border-radius: 10px;
-  background: #ffffff;
+  background: #fff;
   color: #334155;
   font-size: 12px;
   outline: none;
@@ -1360,11 +1604,13 @@ onMounted(async () => {
 
 .reset-filter-button {
   border: 1px solid #cbd5e1;
-  background: #ffffff;
+  background: #fff;
   color: #64748b;
 }
 
-.reset-filter-button:hover:not(:disabled) {
+.reset-filter-button:hover:not(
+    :disabled
+  ) {
   border-color: #93c5fd;
   background: #eff6ff;
   color: #2563eb;
@@ -1374,15 +1620,21 @@ onMounted(async () => {
 .search-button {
   border: 1px solid #2563eb;
   background: #2563eb;
-  color: #ffffff;
-  box-shadow: 0 6px 14px rgb(37 99 235 / 18%);
+  color: #fff;
+  box-shadow:
+    0 6px 14px
+    rgb(37 99 235 / 18%);
 }
 
-.search-button:hover:not(:disabled) {
+.search-button:hover:not(
+    :disabled
+  ) {
   border-color: #1d4ed8;
   background: #1d4ed8;
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgb(37 99 235 / 24%);
+  box-shadow:
+    0 8px 18px
+    rgb(37 99 235 / 24%);
 }
 
 .reset-filter-button:disabled,
@@ -1404,10 +1656,12 @@ onMounted(async () => {
 .table-card-header {
   padding: 22px 25px;
   display: flex;
-  justify-content: space-between;
+  justify-content:
+    space-between;
   align-items: center;
   gap: 17px;
-  border-bottom: 1px solid #edf2f7;
+  border-bottom:
+    1px solid #edf2f7;
 }
 
 /* =========================================
@@ -1416,13 +1670,14 @@ onMounted(async () => {
 
 .book-table {
   width: 100%;
-  min-width: 1200px;
+  min-width: 1320px;
   border-collapse: collapse;
 }
 
 .book-table th {
   padding: 13px 17px;
-  border-bottom: 1px solid #e7edf5;
+  border-bottom:
+    1px solid #e7edf5;
   background: #f8fafc;
   color: #64748b;
   font-size: 10px;
@@ -1435,21 +1690,25 @@ onMounted(async () => {
 
 .book-table td {
   padding: 16px 17px;
-  border-bottom: 1px solid #edf2f7;
+  border-bottom:
+    1px solid #edf2f7;
   color: #475569;
   font-size: 12px;
   vertical-align: middle;
 }
 
 .book-table tbody tr {
-  transition: background 0.2s ease;
+  transition:
+    background 0.2s ease;
 }
 
 .book-table tbody tr:hover {
   background: #f8fbff;
 }
 
-.book-table tbody tr:last-child td {
+.book-table tbody
+  tr:last-child
+  td {
   border-bottom: 0;
 }
 
@@ -1480,7 +1739,8 @@ onMounted(async () => {
   height: 78px;
   overflow: hidden;
   flex-shrink: 0;
-  border: 1px solid #e2e8f0;
+  border:
+    1px solid #e2e8f0;
   border-radius: 9px;
   background: #f1f5f9;
   box-shadow:
@@ -1500,12 +1760,11 @@ onMounted(async () => {
   height: 100%;
   display: grid;
   place-items: center;
-  background:
-    linear-gradient(
-      135deg,
-      #eff6ff,
-      #dbeafe
-    );
+  background: linear-gradient(
+    135deg,
+    #eff6ff,
+    #dbeafe
+  );
   color: #3b82f6;
   font-size: 23px;
 }
@@ -1527,8 +1786,8 @@ onMounted(async () => {
 }
 
 .book-title {
-  overflow: hidden;
   max-width: 300px;
+  overflow: hidden;
   color: #1e3a8a;
   font-size: 13px;
   font-weight: 800;
@@ -1549,14 +1808,8 @@ onMounted(async () => {
   font-size: 11px;
 }
 
-.book-isbn {
-  margin-top: 4px;
-  color: #94a3b8;
-  font-size: 9px;
-}
-
 /* =========================================
-   PUBLISHER AND CATEGORY
+   PUBLISHER, CATEGORY, PRICE
 ========================================= */
 
 .publisher-information {
@@ -1600,6 +1853,14 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
+.book-price {
+  display: inline-block;
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 /* =========================================
    STOCK
 ========================================= */
@@ -1635,7 +1896,8 @@ onMounted(async () => {
 .stock-progress-value {
   height: 100%;
   border-radius: inherit;
-  transition: width 0.3s ease;
+  transition:
+    width 0.3s ease;
 }
 
 .progress-available {
@@ -1651,8 +1913,8 @@ onMounted(async () => {
 }
 
 .stock-information small {
-  display: block;
   margin-top: 6px;
+  display: block;
   color: #94a3b8;
   font-size: 9px;
 }
@@ -1701,12 +1963,15 @@ onMounted(async () => {
   border: 0;
   border-radius: 9px;
   font-size: 13px;
+  text-decoration: none;
   transition:
     transform 0.2s ease,
     background 0.2s ease;
 }
 
-.action-button:hover:not(:disabled) {
+.action-button:hover:not(
+    :disabled
+  ) {
   transform: translateY(-2px);
 }
 
@@ -1730,7 +1995,9 @@ onMounted(async () => {
   color: #dc2626;
 }
 
-.action-delete:hover:not(:disabled) {
+.action-delete:hover:not(
+    :disabled
+  ) {
   background: #fecaca;
 }
 
@@ -1774,12 +2041,11 @@ onMounted(async () => {
   display: grid;
   place-items: center;
   border-radius: 20px;
-  background:
-    linear-gradient(
-      135deg,
-      #eff6ff,
-      #dbeafe
-    );
+  background: linear-gradient(
+    135deg,
+    #eff6ff,
+    #dbeafe
+  );
   color: #3b82f6;
   font-size: 28px;
 }
@@ -1817,11 +2083,13 @@ onMounted(async () => {
 .pagination-container {
   padding: 17px 24px;
   display: flex;
-  justify-content: space-between;
+  justify-content:
+    space-between;
   align-items: center;
   gap: 17px;
-  border-top: 1px solid #edf2f7;
-  background: #ffffff;
+  border-top:
+    1px solid #edf2f7;
+  background: #fff;
 }
 
 .pagination-information {
@@ -1845,15 +2113,18 @@ onMounted(async () => {
   padding: 0 9px;
   display: grid;
   place-items: center;
-  border: 1px solid #dbe3ee;
+  border:
+    1px solid #dbe3ee;
   border-radius: 8px;
-  background: #ffffff;
+  background: #fff;
   color: #64748b;
   font-size: 11px;
   font-weight: 700;
 }
 
-.page-button:hover:not(:disabled) {
+.page-button:hover:not(
+    :disabled
+  ) {
   border-color: #93c5fd;
   background: #eff6ff;
   color: #2563eb;
@@ -1862,7 +2133,7 @@ onMounted(async () => {
 .page-button.active {
   border-color: #2563eb;
   background: #2563eb;
-  color: #ffffff;
+  color: #fff;
 }
 
 .page-button:disabled {
@@ -1883,7 +2154,10 @@ onMounted(async () => {
 @media (max-width: 1350px) {
   .filter-grid {
     grid-template-columns:
-      repeat(3, minmax(0, 1fr));
+      repeat(
+        3,
+        minmax(0, 1fr)
+      );
   }
 
   .search-field {
@@ -1891,34 +2165,27 @@ onMounted(async () => {
   }
 
   .reset-filter-button,
-    .search-button {
-      width: 100%;
-    }
+  .search-button {
+    width: 100%;
+  }
 }
 
 @media (max-width: 800px) {
-  .book-hero {
-    padding: 24px;
+  .filter-heading {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .hero-left {
-    align-items: flex-start;
-  }
-
-  .hero-actions {
-    width: 100%;
-  }
-
-  .refresh-button,
   .add-book-button {
-    flex: 1;
+    width: 100%;
   }
 
   .filter-grid {
     grid-template-columns:
-      repeat(2, minmax(0, 1fr));
+      repeat(
+        2,
+        minmax(0, 1fr)
+      );
   }
 
   .search-field {
@@ -1946,10 +2213,6 @@ onMounted(async () => {
     border-radius: 17px;
   }
 
-  .filter-heading {
-    align-items: flex-start;
-  }
-
   .filter-grid {
     grid-template-columns: 1fr;
   }
@@ -1966,6 +2229,289 @@ onMounted(async () => {
   .table-card-header {
     padding: 19px;
   }
+}
+/* =========================================
+   FIX GIAO DIỆN VỪA MÀN HÌNH
+========================================= */
 
+.book-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.filter-card,
+.book-table-card {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Bộ lọc tự co giãn */
+.filter-grid {
+  grid-template-columns:
+    minmax(220px, 2fr)
+    minmax(120px, 1fr)
+    minmax(150px, 1.1fr)
+    minmax(130px, 1fr)
+    105px
+    105px
+    110px;
+  gap: 10px;
+}
+
+/* Không để nội dung làm rộng cột */
+.filter-grid > div,
+.filter-grid > button {
+  min-width: 0;
+}
+
+/* Vùng chứa bảng */
+.table-responsive {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Bảng vừa chiều rộng màn hình */
+.book-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+/* Giảm khoảng cách hai bên */
+.book-table th {
+  padding: 12px 9px;
+}
+
+.book-table td {
+  padding: 14px 9px;
+}
+
+/* Kích thước từng cột */
+.book-table th:nth-child(1),
+.book-table td:nth-child(1) {
+  width: 50px;
+}
+
+.book-table th:nth-child(2),
+.book-table td:nth-child(2) {
+  width: auto;
+}
+
+.book-table th:nth-child(3),
+.book-table td:nth-child(3) {
+  width: 160px;
+}
+
+.book-table th:nth-child(4),
+.book-table td:nth-child(4) {
+  width: 135px;
+}
+
+.book-table th:nth-child(5),
+.book-table td:nth-child(5) {
+  width: 100px;
+}
+
+.book-table th:nth-child(6),
+.book-table td:nth-child(6) {
+  width: 130px;
+}
+
+.book-table th:nth-child(7),
+.book-table td:nth-child(7) {
+  width: 115px;
+}
+
+.book-table th:nth-child(8),
+.book-table td:nth-child(8) {
+  width: 120px;
+}
+
+/* Thông tin sách được phép co lại */
+.book-information {
+  width: 100%;
+  min-width: 0;
+  gap: 10px;
+}
+
+.book-cover {
+  width: 52px;
+  height: 70px;
+}
+
+.book-text {
+  min-width: 0;
+  width: calc(100% - 62px);
+}
+
+.book-title {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-author {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Nhà xuất bản không làm rộng bảng */
+.publisher-information {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  gap: 7px;
+}
+
+.publisher-information span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.publisher-icon {
+  width: 30px;
+  height: 30px;
+}
+
+/* Thể loại */
+.category-badge {
+  max-width: 100%;
+}
+
+/* Giá */
+.book-price {
+  font-size: 12px;
+}
+
+/* Tồn kho */
+.stock-information {
+  width: 100%;
+  max-width: 115px;
+}
+
+/* Trạng thái */
+.stock-status {
+  max-width: 100%;
+  padding: 6px 8px;
+}
+
+/* Nút thao tác */
+.action-buttons {
+  width: 100%;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 5px;
+}
+
+.action-button {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+/* =========================================
+   MÀN HÌNH LAPTOP
+========================================= */
+
+@media (max-width: 1350px) {
+  .filter-grid {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+
+  .search-field {
+    grid-column: span 2;
+  }
+
+  .book-table {
+    min-width: 1050px;
+  }
+
+  .book-table th:nth-child(3),
+  .book-table td:nth-child(3) {
+    width: 145px;
+  }
+
+  .book-table th:nth-child(4),
+  .book-table td:nth-child(4) {
+    width: 125px;
+  }
+
+  .book-table th:nth-child(7),
+  .book-table td:nth-child(7) {
+    width: 105px;
+  }
+
+  .book-table th:nth-child(8),
+  .book-table td:nth-child(8) {
+    width: 110px;
+  }
+}
+
+/* =========================================
+   MÁY TÍNH BẢNG
+========================================= */
+
+@media (max-width: 900px) {
+  .filter-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .add-book-button {
+    width: 100%;
+  }
+
+  .filter-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .search-field {
+    grid-column: 1 / -1;
+  }
+
+  /*
+   * Trên màn hình nhỏ giữ thanh cuộn ngang,
+   * tránh ép các cột đến mức khó đọc.
+   */
+  .book-table {
+    min-width: 1000px;
+  }
+
+  .pagination-container {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+/* =========================================
+   ĐIỆN THOẠI
+========================================= */
+
+@media (max-width: 600px) {
+  .filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .search-field {
+    grid-column: auto;
+  }
+
+  .filter-card {
+    padding: 16px;
+  }
+
+  .book-table {
+    min-width: 950px;
+  }
 }
 </style>

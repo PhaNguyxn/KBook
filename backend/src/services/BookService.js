@@ -1,5 +1,13 @@
 const mongoose = require("mongoose");
+
 const Book = require("../models/Book");
+const Publisher = require("../models/Publisher");
+const generateCode = require("../utils/generateCode");
+const PublisherService = require("./PublisherService");
+
+/* ==================================================
+   HÀM HỖ TRỢ
+================================================== */
 
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -11,15 +19,87 @@ function validateObjectId(id, message) {
   }
 }
 
-function normalizeNumber(value, defaultValue = 0) {
-  const number = Number(value);
+function validatePrice(value) {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    throw new Error("Vui lòng nhập đơn giá");
+  }
 
-  return Number.isFinite(number) ? number : defaultValue;
+  const price = Number(value);
+
+  if (!Number.isFinite(price) || price < 0) {
+    throw new Error("Đơn giá không hợp lệ");
+  }
+
+  return price;
+}
+
+function validatePublishYear(value) {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    throw new Error("Vui lòng nhập năm xuất bản");
+  }
+
+  const publishYear = Number(value);
+  const currentYear = new Date().getFullYear();
+
+  if (
+    !Number.isInteger(publishYear) ||
+    publishYear < 1000 ||
+    publishYear > currentYear
+  ) {
+    throw new Error(`Năm xuất bản phải từ 1000 đến ${currentYear}`);
+  }
+
+  return publishYear;
+}
+
+function validateQuantity(value) {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    throw new Error("Vui lòng nhập số lượng sách");
+  }
+
+  const quantity = Number(value);
+
+  if (!Number.isInteger(quantity) || quantity < 0) {
+    throw new Error("Số lượng sách phải là số nguyên không âm");
+  }
+
+  return quantity;
 }
 
 /**
- * GET /api/books
+ * Tìm nhà xuất bản từ tên hoặc ObjectId.
+ *
+ * Khi thêm sách mới, frontend chỉ cần gửi
+ * publisherName.
+ *
+ * Việc hỗ trợ ObjectId giúp tương thích với
+ * frontend hoặc dữ liệu cũ.
  */
+async function resolvePublisher(publisherValue) {
+  const value = String(publisherValue || "").trim();
+
+  if (!value) {
+    throw new Error("Vui lòng nhập tên nhà xuất bản");
+  }
+
+  if (mongoose.isValidObjectId(value)) {
+    const publisher = await Publisher.findById(value);
+
+    if (!publisher) {
+      throw new Error("Nhà xuất bản không tồn tại");
+    }
+
+    return publisher;
+  }
+
+  return PublisherService.findOrCreatePublisherByName(value);
+}
+
+/* ==================================================
+   GET /api/books
+   LẤY DANH SÁCH SÁCH
+================================================== */
+
 async function getAllBooks(query = {}) {
   let {
     page = 1,
@@ -35,12 +115,20 @@ async function getAllBooks(query = {}) {
   limit = Math.min(Math.max(Number(limit) || 10, 1), 100);
 
   keyword = String(keyword || "").trim();
+
   category = String(category || "").trim();
+
   publisher = String(publisher || "").trim();
 
   const filter = {};
 
-  // Tìm theo mã sách, tên sách, tác giả hoặc ISBN
+  /*
+   * Tìm theo:
+   * - Mã sách
+   * - Tên sách
+   * - Tác giả
+   * - Thể loại
+   */
   if (keyword) {
     const safeKeyword = escapeRegex(keyword);
 
@@ -64,7 +152,7 @@ async function getAllBooks(query = {}) {
         },
       },
       {
-        isbn: {
+        category: {
           $regex: safeKeyword,
           $options: "i",
         },
@@ -72,7 +160,7 @@ async function getAllBooks(query = {}) {
     ];
   }
 
-  // Tìm kiếm theo thể loại
+  // Lọc theo thể loại
   if (category) {
     filter.category = {
       $regex: escapeRegex(category),
@@ -80,31 +168,61 @@ async function getAllBooks(query = {}) {
     };
   }
 
-  // Lọc theo nhà xuất bản
+  /*
+   * Lọc nhà xuất bản.
+   *
+   * Hỗ trợ cả:
+   * - ObjectId nhà xuất bản.
+   * - Tên nhà xuất bản.
+   */
   if (publisher) {
-    validateObjectId(publisher, "Nhà xuất bản không hợp lệ");
+    if (mongoose.isValidObjectId(publisher)) {
+      filter.publisher = publisher;
+    } else {
+      const publisherIds = await Publisher.find({
+        publisherName: {
+          $regex: escapeRegex(publisher),
+          $options: "i",
+        },
+      }).distinct("_id");
 
-    filter.publisher = publisher;
+      filter.publisher = {
+        $in: publisherIds,
+      };
+    }
   }
 
   const sortOptions = {
     latest: {
       createdAt: -1,
     },
+
     oldest: {
       createdAt: 1,
     },
+
     "title-asc": {
       title: 1,
     },
+
     "title-desc": {
       title: -1,
     },
+
     "available-asc": {
       available: 1,
     },
+
     "available-desc": {
       available: -1,
+    },
+
+    "price-asc": {
+      price: 1,
+    },
+
+    "price-desc": {
+      price: -1,
     },
   };
 
@@ -117,7 +235,7 @@ async function getAllBooks(query = {}) {
   const currentPage = totalPages > 0 ? Math.min(page, totalPages) : 1;
 
   const books = await Book.find(filter)
-    .populate("publisher", "publisherCode publisherName email phone")
+    .populate("publisher", "publisherCode publisherName email phone address")
     .sort(sortOption)
     .skip((currentPage - 1) * limit)
     .limit(limit)
@@ -131,15 +249,19 @@ async function getAllBooks(query = {}) {
       page: currentPage,
       limit,
       totalPages,
-      hasPreviousPage: currentPage > 1,
-      hasNextPage: currentPage < totalPages,
+
+      hasPreviousPage: totalPages > 0 && currentPage > 1,
+
+      hasNextPage: totalPages > 0 && currentPage < totalPages,
     },
   };
 }
 
-/**
- * GET /api/books/:id
- */
+/* ==================================================
+   GET /api/books/:id
+   LẤY CHI TIẾT SÁCH
+================================================== */
+
 async function getBookById(id) {
   validateObjectId(id, "Mã sách không hợp lệ");
 
@@ -154,25 +276,25 @@ async function getBookById(id) {
   return book;
 }
 
-/**
- * POST /api/books
- */
-async function createBook(data = {}) {
-  const bookCode = String(data.bookCode || "")
-    .trim()
-    .toUpperCase();
+/* ==================================================
+   POST /api/books
+   THÊM SÁCH
+================================================== */
 
+async function createBook(data = {}) {
   const title = String(data.title || "").trim();
 
   const author = String(data.author || "").trim();
 
   const category = String(data.category || "").trim();
 
-  const publisher = String(data.publisher || "").trim();
+  const publisherValue = data.publisherName || data.publisher || "";
 
-  if (!bookCode) {
-    throw new Error("Vui lòng nhập mã sách");
-  }
+  const price = validatePrice(data.price);
+
+  const publishYear = validatePublishYear(data.publishYear);
+
+  const quantity = validateQuantity(data.quantity);
 
   if (!title) {
     throw new Error("Vui lòng nhập tên sách");
@@ -186,54 +308,47 @@ async function createBook(data = {}) {
     throw new Error("Vui lòng nhập thể loại");
   }
 
-  validateObjectId(publisher, "Nhà xuất bản không hợp lệ");
+  /*
+   * Frontend chỉ cần gửi tên nhà xuất bản.
+   *
+   * Có nhà xuất bản:
+   * → Dùng ObjectId hiện có.
+   *
+   * Chưa có:
+   * → Tự tạo nhà xuất bản mới.
+   */
+  const publisher = await resolvePublisher(publisherValue);
 
-  const existedBook = await Book.findOne({
-    bookCode,
-  });
-
-  if (existedBook) {
-    throw new Error("Mã sách đã tồn tại");
-  }
-
-  const quantity = normalizeNumber(data.quantity, 1);
-
-  if (quantity < 0) {
-    throw new Error("Số lượng sách không được nhỏ hơn 0");
-  }
-
-  const publicationYear = data.publicationYear
-    ? normalizeNumber(data.publicationYear)
-    : undefined;
+  const bookCode = await generateCode("book", "BOOK", 3);
 
   const book = await Book.create({
     bookCode,
     title,
     author,
     category,
-    publisher,
+    price,
+    publishYear,
 
-    isbn: String(data.isbn || "").trim(),
-
-    publicationYear,
-
-    description: String(data.description || "").trim(),
-
-    image: String(data.image || "").trim(),
+    publisher: publisher._id,
 
     quantity,
     available: quantity,
-    status: true,
+
+    image: String(data.image || "").trim(),
+
+    description: String(data.description || "").trim(),
   });
 
   return Book.findById(book._id)
-    .populate("publisher", "publisherCode publisherName")
+    .populate("publisher", "publisherCode publisherName email phone address")
     .lean();
 }
 
-/**
- * PUT /api/books/:id
- */
+/* ==================================================
+   PUT /api/books/:id
+   CẬP NHẬT SÁCH
+================================================== */
+
 async function updateBook(id, data = {}) {
   validateObjectId(id, "Mã sách không hợp lệ");
 
@@ -241,27 +356,6 @@ async function updateBook(id, data = {}) {
 
   if (!book) {
     throw new Error("Không tìm thấy sách");
-  }
-
-  if (data.bookCode !== undefined) {
-    const bookCode = String(data.bookCode).trim().toUpperCase();
-
-    if (!bookCode) {
-      throw new Error("Mã sách không được để trống");
-    }
-
-    const duplicatedBook = await Book.findOne({
-      _id: {
-        $ne: id,
-      },
-      bookCode,
-    });
-
-    if (duplicatedBook) {
-      throw new Error("Mã sách đã tồn tại");
-    }
-
-    book.bookCode = bookCode;
   }
 
   if (data.title !== undefined) {
@@ -294,36 +388,50 @@ async function updateBook(id, data = {}) {
     book.category = category;
   }
 
-  if (data.publisher !== undefined) {
-    validateObjectId(data.publisher, "Nhà xuất bản không hợp lệ");
+  /*
+   * Cập nhật nhà xuất bản bằng tên hoặc ObjectId.
+   */
+  if (data.publisherName !== undefined || data.publisher !== undefined) {
+    const publisherValue = data.publisherName ?? data.publisher ?? "";
 
-    book.publisher = data.publisher;
+    const publisher = await resolvePublisher(publisherValue);
+
+    book.publisher = publisher._id;
   }
 
-  if (data.isbn !== undefined) {
-    book.isbn = String(data.isbn || "").trim();
+  /*
+   * Cập nhật đơn giá.
+   */
+  if (data.price !== undefined) {
+    book.price = validatePrice(data.price);
   }
 
-  if (data.publicationYear !== undefined) {
-    book.publicationYear = data.publicationYear
-      ? normalizeNumber(data.publicationYear)
-      : undefined;
+  /*
+   * Dùng publishYear thống nhất với model.
+   *
+   * publicationYear chỉ được hỗ trợ tạm thời
+   * để tương thích với frontend cũ.
+   */
+  if (data.publishYear !== undefined || data.publicationYear !== undefined) {
+    const publishYearValue = data.publishYear ?? data.publicationYear;
+
+    book.publishYear = validatePublishYear(publishYearValue);
   }
 
   if (data.description !== undefined) {
     book.description = String(data.description || "").trim();
   }
 
-  if (data.image !== undefined && String(data.image).trim()) {
-    book.image = String(data.image).trim();
+  if (data.image !== undefined) {
+    book.image = String(data.image || "").trim();
   }
 
+  /*
+   * Cập nhật số lượng sách và giữ đúng số
+   * lượng sách hiện đang được mượn.
+   */
   if (data.quantity !== undefined) {
-    const newQuantity = normalizeNumber(data.quantity);
-
-    if (newQuantity < 0) {
-      throw new Error("Số lượng sách không được nhỏ hơn 0");
-    }
+    const newQuantity = validateQuantity(data.quantity);
 
     const oldQuantity = Number(book.quantity || 0);
 
@@ -345,15 +453,15 @@ async function updateBook(id, data = {}) {
   await book.save();
 
   return Book.findById(book._id)
-    .populate("publisher", "publisherCode publisherName")
+    .populate("publisher", "publisherCode publisherName email phone address")
     .lean();
 }
 
-/**
- * DELETE /api/books/:id
- *
- * Xóa vĩnh viễn thay vì khóa sách.
- */
+/* ==================================================
+   DELETE /api/books/:id
+   XÓA SÁCH VĨNH VIỄN
+================================================== */
+
 async function deleteBook(id) {
   validateObjectId(id, "Mã sách không hợp lệ");
 

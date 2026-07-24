@@ -18,19 +18,13 @@ import { getErrorMessage } from "@/utils/error";
 const route = useRoute();
 const router = useRouter();
 
+/* =========================================
+   STATE
+========================================= */
+
 const loading = ref(false);
 const submitting = ref(false);
 const errorMessage = ref("");
-
-const isEditMode = computed(() =>
-  Boolean(route.params.id),
-);
-
-const pageTitle = computed(() =>
-  isEditMode.value
-    ? "Cập nhật độc giả"
-    : "Thêm độc giả",
-);
 
 const form = reactive({
   readerCode: "",
@@ -40,14 +34,94 @@ const form = reactive({
   gender: "Nam",
   phone: "",
   address: "",
-  status: true,
 });
 
-function validateForm() {
-  if (!form.readerCode.trim()) {
-    return "Vui lòng nhập mã độc giả";
-  }
+/* =========================================
+   COMPUTED
+========================================= */
 
+const isEditMode = computed(() => {
+  return Boolean(route.params.id);
+});
+
+const pageTitle = computed(() => {
+  return isEditMode.value
+    ? "Cập nhật độc giả"
+    : "Thêm độc giả mới";
+});
+
+const pageDescription = computed(() => {
+  return isEditMode.value
+    ? "Chỉnh sửa và cập nhật thông tin của độc giả."
+    : "Nhập đầy đủ thông tin độc giả vào biểu mẫu bên dưới.";
+});
+
+const fullName = computed(() => {
+  const value = `${
+    form.lastName || ""
+  } ${form.firstName || ""}`.trim();
+
+  return value || "Tên độc giả";
+});
+
+const readerInitials = computed(() => {
+  const lastName = String(
+    form.lastName || "",
+  ).trim();
+
+  const firstName = String(
+    form.firstName || "",
+  ).trim();
+
+  const initials = `${
+    lastName.charAt(0)
+  }${firstName.charAt(0)}`.toUpperCase();
+
+  return initials || "ĐG";
+});
+
+const formattedPhone = computed(() => {
+  return (
+    form.phone.trim() ||
+    "Chưa nhập số điện thoại"
+  );
+});
+
+const today = computed(() => {
+  const currentDate = new Date();
+
+  const year =
+    currentDate.getFullYear();
+
+  const month = String(
+    currentDate.getMonth() + 1,
+  ).padStart(2, "0");
+
+  const day = String(
+    currentDate.getDate(),
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+});
+
+/* =========================================
+   HÀM HỖ TRỢ
+========================================= */
+
+function goBack() {
+  router.push({
+    name: "readers",
+  });
+}
+
+function normalizePhone(value) {
+  return String(value || "").replace(
+    /\s/g,
+    "",
+  );
+}
+
+function validateForm() {
   if (!form.lastName.trim()) {
     return "Vui lòng nhập họ độc giả";
   }
@@ -60,27 +134,46 @@ function validateForm() {
     return "Vui lòng chọn ngày sinh";
   }
 
-  const birthday = new Date(form.birthday);
-  const today = new Date();
+  const birthday =
+    new Date(form.birthday);
+
+  const currentDate =
+    new Date();
 
   birthday.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
+  currentDate.setHours(0, 0, 0, 0);
 
-  if (birthday >= today) {
+  if (
+    Number.isNaN(
+      birthday.getTime(),
+    )
+  ) {
+    return "Ngày sinh không hợp lệ";
+  }
+
+  if (birthday >= currentDate) {
     return "Ngày sinh phải nhỏ hơn ngày hiện tại";
   }
 
-  const normalizedPhone = form.phone.replace(
-    /\s/g,
-    "",
-  );
+  const phone =
+    normalizePhone(form.phone);
 
-  if (!/^[0-9]{9,11}$/.test(normalizedPhone)) {
+  if (!phone) {
+    return "Vui lòng nhập số điện thoại";
+  }
+
+  if (
+    !/^[0-9]{9,11}$/.test(phone)
+  ) {
     return "Số điện thoại phải gồm từ 9 đến 11 chữ số";
   }
 
   if (
-    !["Nam", "Nữ", "Khác"].includes(form.gender)
+    ![
+      "Nam",
+      "Nữ",
+      "Khác",
+    ].includes(form.gender)
   ) {
     return "Giới tính không hợp lệ";
   }
@@ -88,62 +181,108 @@ function validateForm() {
   return "";
 }
 
+/* =========================================
+   TẢI THÔNG TIN ĐỘC GIẢ
+========================================= */
+
 async function loadReader() {
   if (!isEditMode.value) {
     return;
   }
 
   loading.value = true;
+  errorMessage.value = "";
 
   try {
-    const response = await readerApi.getById(
-      route.params.id,
-    );
+    const response =
+      await readerApi.getById(
+        route.params.id,
+      );
 
-    const reader = response.data.data;
+    const reader =
+      response?.data?.data ||
+      response?.data;
 
-    form.readerCode = reader.readerCode || "";
-    form.firstName = reader.firstName || "";
-    form.lastName = reader.lastName || "";
-    form.birthday = formatDateForInput(
-      reader.birthday,
-    );
-    form.gender = reader.gender || "Nam";
-    form.phone = reader.phone || "";
-    form.address = reader.address || "";
-    form.status = reader.status ?? true;
+    if (!reader) {
+      throw new Error(
+        "Không tìm thấy thông tin độc giả",
+      );
+    }
+
+    form.readerCode =
+      reader.readerCode || "";
+
+    form.firstName =
+      reader.firstName || "";
+
+    form.lastName =
+      reader.lastName || "";
+
+    form.birthday =
+      formatDateForInput(
+        reader.birthday,
+      );
+
+    form.gender =
+      reader.gender || "Nam";
+
+    form.phone =
+      reader.phone || "";
+
+    form.address =
+      reader.address || "";
+
   } catch (error) {
-    errorMessage.value = getErrorMessage(
-      error,
-      "Không thể tải thông tin độc giả",
-    );
+    errorMessage.value =
+      getErrorMessage(
+        error,
+        "Không thể tải thông tin độc giả",
+      );
   } finally {
     loading.value = false;
   }
 }
 
-async function handleSubmit() {
-  errorMessage.value = validateForm();
+/* =========================================
+   GỬI BIỂU MẪU
+========================================= */
 
-  if (errorMessage.value) {
+async function handleSubmit() {
+  errorMessage.value = "";
+
+  const validationError =
+    validateForm();
+
+  if (validationError) {
+    errorMessage.value =
+      validationError;
+
     return;
   }
 
   submitting.value = true;
 
   const payload = {
-    readerCode: form.readerCode.trim(),
-    firstName: form.firstName.trim(),
-    lastName: form.lastName.trim(),
-    birthday: form.birthday,
-    gender: form.gender,
-    phone: form.phone.replace(/\s/g, ""),
-    address: form.address.trim(),
-  };
+    firstName:
+      form.firstName.trim(),
 
-  if (isEditMode.value) {
-    payload.status = form.status;
-  }
+    lastName:
+      form.lastName.trim(),
+
+    birthday:
+      form.birthday,
+
+    gender:
+      form.gender,
+
+    phone:
+      normalizePhone(
+        form.phone,
+      ),
+
+    address:
+      form.address.trim(),
+  };
 
   try {
     if (isEditMode.value) {
@@ -152,232 +291,548 @@ async function handleSubmit() {
         payload,
       );
     } else {
-      await readerApi.create(payload);
+      await readerApi.create(
+        payload,
+      );
     }
 
-    router.push({
+    await router.push({
       name: "readers",
     });
   } catch (error) {
-    errorMessage.value = getErrorMessage(
-      error,
-      isEditMode.value
-        ? "Không thể cập nhật độc giả"
-        : "Không thể thêm độc giả",
-    );
+    errorMessage.value =
+      getErrorMessage(
+        error,
+        isEditMode.value
+          ? "Không thể cập nhật độc giả"
+          : "Không thể thêm độc giả",
+      );
   } finally {
     submitting.value = false;
   }
 }
 
-onMounted(loadReader);
+/* =========================================
+   KHỞI TẠO
+========================================= */
+
+onMounted(() => {
+  loadReader();
+});
 </script>
 
 <template>
   <section class="reader-form-page">
-    <button
-      type="button"
-      class="back-button"
-      @click="router.push('/readers')"
-    >
-      ← Quay lại danh sách
-    </button>
-
-    <header class="page-header">
-      <h1>{{ pageTitle }}</h1>
-
-      <p>
-        Nhập đầy đủ thông tin của độc giả.
-      </p>
-    </header>
-
-    <p v-if="loading">
-      Đang tải thông tin độc giả...
-    </p>
-
-    <form
-      v-else
-      class="reader-form"
-      @submit.prevent="handleSubmit"
-    >
-      <p
-        v-if="errorMessage"
-        class="error-message"
-      >
-        {{ errorMessage }}
-      </p>
-
-      <div class="form-grid">
-        <div class="form-group">
-          <label for="readerCode">
-            Mã độc giả <span>*</span>
-          </label>
-
-          <input
-            id="readerCode"
-            v-model="form.readerCode"
-            type="text"
-            placeholder="Ví dụ: DG001"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="phone">
-            Số điện thoại <span>*</span>
-          </label>
-
-          <input
-            id="phone"
-            v-model="form.phone"
-            type="tel"
-            placeholder="Ví dụ: 0901234567"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="lastName">
-            Họ <span>*</span>
-          </label>
-
-          <input
-            id="lastName"
-            v-model="form.lastName"
-            type="text"
-            placeholder="Ví dụ: Nguyễn Văn"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="firstName">
-            Tên <span>*</span>
-          </label>
-
-          <input
-            id="firstName"
-            v-model="form.firstName"
-            type="text"
-            placeholder="Ví dụ: An"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="birthday">
-            Ngày sinh <span>*</span>
-          </label>
-
-          <input
-            id="birthday"
-            v-model="form.birthday"
-            type="date"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="gender">
-            Giới tính <span>*</span>
-          </label>
-
-          <select
-            id="gender"
-            v-model="form.gender"
-          >
-            <option value="Nam">Nam</option>
-            <option value="Nữ">Nữ</option>
-            <option value="Khác">Khác</option>
-          </select>
-        </div>
-
-        <div class="form-group full-width">
-          <label for="address">Địa chỉ</label>
-
-          <textarea
-            id="address"
-            v-model="form.address"
-            rows="4"
-            placeholder="Nhập địa chỉ độc giả"
-          />
-        </div>
-
-        <div
-          v-if="isEditMode"
-          class="form-group full-width"
-        >
-          <label class="checkbox-label">
-            <input
-              v-model="form.status"
-              type="checkbox"
-            />
-
-            Tài khoản độc giả đang hoạt động
-          </label>
-        </div>
-      </div>
-
-      <div class="form-actions">
+    <!-- Tiêu đề -->
+    <div class="form-header">
+      <div>
         <button
           type="button"
-          class="cancel-button"
-          @click="router.push('/readers')"
+          class="back-button"
+          @click="goBack"
         >
-          Hủy
+          <i
+            class="bi bi-arrow-left"
+          />
+
+          Quay lại
         </button>
 
-        <button
-          type="submit"
-          class="submit-button"
-          :disabled="submitting"
-        >
-          {{
-            submitting
-              ? "Đang lưu..."
-              : isEditMode
-                ? "Cập nhật độc giả"
-                : "Thêm độc giả"
-          }}
-        </button>
+        <h1>{{ pageTitle }}</h1>
+
+        <p>
+          {{ pageDescription }}
+        </p>
       </div>
+    </div>
+
+    <!-- Thông báo lỗi -->
+    <div
+      v-if="errorMessage"
+      class="alert alert-danger"
+      role="alert"
+    >
+      <i
+        class="bi bi-exclamation-circle-fill me-2"
+      />
+
+      {{ errorMessage }}
+    </div>
+
+    <!-- Loading -->
+    <div
+      v-if="loading"
+      class="form-card loading-state"
+    >
+      <div
+        class="spinner-border text-primary"
+        role="status"
+      />
+
+      <span>
+        Đang tải thông tin độc giả...
+      </span>
+    </div>
+
+    <!-- Form -->
+    <form
+      v-else
+      class="form-layout"
+      @submit.prevent="handleSubmit"
+    >
+      <!-- Nội dung chính -->
+      <div class="form-card main-form">
+        <div class="section-heading">
+          <div class="section-icon">
+            <i
+              class="bi bi-person-vcard"
+            />
+          </div>
+
+          <div>
+            <h2>
+              Thông tin độc giả
+            </h2>
+
+            <p>
+              Các trường có dấu
+              <span>*</span>
+              là bắt buộc.
+            </p>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <!-- Họ -->
+          <div class="form-group">
+            <label for="lastName">
+              Họ và tên đệm
+              <span>*</span>
+            </label>
+
+            <div
+              class="input-icon-wrapper"
+            >
+              <i
+                class="bi bi-person"
+              />
+
+              <input
+                id="lastName"
+                v-model="
+                  form.lastName
+                "
+                type="text"
+                placeholder="Ví dụ: Nguyễn Văn"
+                autocomplete="family-name"
+              />
+            </div>
+          </div>
+
+          <!-- Tên -->
+          <div class="form-group">
+            <label for="firstName">
+              Tên
+              <span>*</span>
+            </label>
+
+            <div
+              class="input-icon-wrapper"
+            >
+              <i
+                class="bi bi-person"
+              />
+
+              <input
+                id="firstName"
+                v-model="
+                  form.firstName
+                "
+                type="text"
+                placeholder="Ví dụ: An"
+                autocomplete="given-name"
+              />
+            </div>
+          </div>
+          
+          <!-- Số điện thoại -->
+          <div class="form-group">
+            <label for="phone">
+              Số điện thoại
+              <span>*</span>
+            </label>
+
+            <div
+              class="input-icon-wrapper"
+            >
+              <i
+                class="bi bi-telephone"
+              />
+
+              <input
+                id="phone"
+                v-model="form.phone"
+                type="tel"
+                inputmode="numeric"
+                maxlength="11"
+                placeholder="Ví dụ: 0901234567"
+                autocomplete="tel"
+              />
+            </div>
+          </div>
+
+          <!-- Ngày sinh -->
+          <div class="form-group">
+            <label for="birthday">
+              Ngày sinh
+              <span>*</span>
+            </label>
+
+            <div
+              class="input-icon-wrapper"
+            >
+              <i
+                class="bi bi-calendar3"
+              />
+
+              <input
+                id="birthday"
+                v-model="
+                  form.birthday
+                "
+                type="date"
+                :max="today"
+              />
+            </div>
+          </div>
+
+          <!-- Giới tính -->
+          <div class="form-group">
+            <label for="gender">
+              Giới tính
+              <span>*</span>
+            </label>
+
+            <div
+              class="input-icon-wrapper"
+            >
+              <i
+                class="bi bi-gender-ambiguous"
+              />
+
+              <select
+                id="gender"
+                v-model="
+                  form.gender
+                "
+              >
+                <option value="Nam">
+                  Nam
+                </option>
+
+                <option value="Nữ">
+                  Nữ
+                </option>
+
+                <option value="Khác">
+                  Khác
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Địa chỉ -->
+          <div
+            class="form-group full-width"
+          >
+            <label for="address">
+              Địa chỉ
+            </label>
+
+            <div
+              class="textarea-wrapper"
+            >
+              <i
+                class="bi bi-geo-alt"
+              />
+
+              <textarea
+                id="address"
+                v-model="
+                  form.address
+                "
+                rows="5"
+                placeholder="Nhập địa chỉ của độc giả"
+                autocomplete="street-address"
+              />
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Thanh bên -->
+      <aside
+        class="form-card preview-card"
+      >
+        <h2>
+          Thông tin xem trước
+        </h2>
+
+        <div
+          class="reader-preview"
+        >
+          <div
+            class="reader-avatar"
+          >
+            {{ readerInitials }}
+          </div>
+
+          <h3>
+            {{ fullName }}
+          </h3>
+
+          <span
+            class="reader-code-preview"
+          >
+            {{
+              form.readerCode ||
+              "CHƯA CÓ MÃ"
+            }}
+          </span>
+
+          <div
+            class="reader-preview-details"
+          >
+            <div>
+              <i
+                class="bi bi-telephone"
+              />
+
+              <span>
+                {{ formattedPhone }}
+              </span>
+            </div>
+
+            <div>
+              <i
+                class="bi bi-calendar3"
+              />
+
+              <span>
+                {{
+                  form.birthday ||
+                  "Chưa chọn ngày sinh"
+                }}
+              </span>
+            </div>
+
+            <div>
+              <i
+                class="bi bi-gender-ambiguous"
+              />
+
+              <span>
+                {{ form.gender }}
+              </span>
+            </div>
+
+            <div>
+              <i
+                class="bi bi-geo-alt"
+              />
+
+              <span>
+                {{
+                  form.address ||
+                  "Chưa nhập địa chỉ"
+                }}
+              </span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="information-note">
+          <i
+            class="bi bi-info-circle"
+          />
+
+          <p>
+            Kiểm tra kỹ thông tin trước
+            khi lưu.
+          </p>
+        </div>
+
+        <div class="form-actions">
+          <button
+            type="button"
+            class="cancel-button"
+            :disabled="submitting"
+            @click="goBack"
+          >
+            Hủy
+          </button>
+
+          <button
+            type="submit"
+            class="save-button"
+            :disabled="
+              submitting ||
+              loading
+            "
+          >
+            <span
+              v-if="submitting"
+              class="spinner-border spinner-border-sm"
+            />
+
+            <i
+              v-else
+              class="bi bi-floppy"
+            />
+
+            {{
+              submitting
+                ? "Đang lưu..."
+                : isEditMode
+                  ? "Cập nhật"
+                  : "Thêm độc giả"
+            }}
+          </button>
+        </div>
+      </aside>
     </form>
   </section>
 </template>
 
 <style scoped>
 .reader-form-page {
-  max-width: 900px;
+  width: 100%;
+  max-width: 1450px;
+  min-width: 0;
   margin: 0 auto;
+}
+
+/* =========================================
+   TIÊU ĐỀ
+========================================= */
+
+.form-header,
+.form-card {
+  border: 1px solid #e5edf7;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow:
+    0 10px 28px
+    rgb(15 23 42 / 6%);
+}
+
+.form-header {
+  margin-bottom: 22px;
+  padding: 26px 30px;
+}
+
+.form-header h1 {
+  margin: 12px 0 5px;
+  color: #1f4fbf;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.form-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
 }
 
 .back-button {
   padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   border: 0;
   background: transparent;
   color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.page-header {
-  margin: 18px 0 22px;
+.back-button:hover {
+  color: #1d4ed8;
 }
 
-.page-header h1 {
-  margin-bottom: 6px;
+/* =========================================
+   BỐ CỤC
+========================================= */
+
+.form-layout {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr)
+    340px;
+  align-items: start;
+  gap: 22px;
 }
 
-.page-header p {
-  margin: 0;
-  color: #6b7280;
-}
-
-.reader-form {
+.form-card {
+  min-width: 0;
   padding: 26px;
-  border-radius: 11px;
-  background: white;
-  box-shadow: 0 5px 20px rgb(0 0 0 / 6%);
 }
+
+.form-card h2 {
+  margin: 0;
+  color: #1e3a8a;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.section-heading {
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.section-heading p {
+  margin: 5px 0 0;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.section-heading p span {
+  color: #dc2626;
+}
+
+.section-icon {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 13px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 21px;
+}
+
+/* =========================================
+   FORM
+========================================= */
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
   gap: 18px;
+}
+
+.form-group {
+  min-width: 0;
 }
 
 .full-width {
@@ -385,80 +840,331 @@ onMounted(loadReader);
 }
 
 .form-group label {
-  display: block;
   margin-bottom: 7px;
-  font-weight: 600;
+  display: block;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .form-group label span {
   color: #dc2626;
 }
 
+.input-icon-wrapper,
+.textarea-wrapper {
+  position: relative;
+}
+
+.input-icon-wrapper > i,
+.textarea-wrapper > i {
+  position: absolute;
+  left: 14px;
+  z-index: 1;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.input-icon-wrapper > i {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.textarea-wrapper > i {
+  top: 15px;
+}
+
 input,
 select,
 textarea {
   width: 100%;
-  padding: 11px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 7px;
-  box-sizing: border-box;
+  border: 1px solid #dbe4ef;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
   font: inherit;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+input,
+select {
+  height: 44px;
+  padding: 0 13px 0 40px;
 }
 
 textarea {
+  min-height: 125px;
+  padding: 13px 13px 13px 40px;
+  line-height: 1.6;
   resize: vertical;
 }
 
-.checkbox-label {
-  display: flex !important;
-  align-items: center;
-  gap: 9px;
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #60a5fa;
+  box-shadow:
+    0 0 0 3px
+    rgb(59 130 246 / 12%);
 }
 
-.checkbox-label input {
-  width: auto;
+input::placeholder,
+textarea::placeholder {
+  color: #a0aec0;
 }
+
+.field-note {
+  margin-top: 6px;
+  display: block;
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* =========================================
+   KHUNG XEM TRƯỚC
+========================================= */
+
+.preview-card {
+  position: sticky;
+  top: 20px;
+}
+
+.preview-card > h2 {
+  margin-bottom: 22px;
+}
+
+.reader-preview {
+  padding: 23px 18px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  border: 1px solid #e0e7ff;
+  border-radius: 17px;
+  background: linear-gradient(
+    145deg,
+    #f8fbff,
+    #eef5ff
+  );
+  text-align: center;
+}
+
+.reader-avatar {
+  width: 92px;
+  height: 92px;
+  display: grid;
+  place-items: center;
+  border: 5px solid #fff;
+  border-radius: 26px;
+  background: linear-gradient(
+    135deg,
+    #60a5fa,
+    #2563eb
+  );
+  color: #fff;
+  font-size: 27px;
+  font-weight: 800;
+  box-shadow:
+    0 12px 25px
+    rgb(37 99 235 / 24%);
+}
+
+.reader-preview h3 {
+  max-width: 100%;
+  margin: 16px 0 5px;
+  overflow-wrap: anywhere;
+  color: #1e3a8a;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.reader-code-preview {
+  color: #3b82f6;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+}
+
+.reader-preview-details {
+  width: 100%;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  text-align: left;
+}
+
+.reader-preview-details div {
+  min-width: 0;
+  padding: 10px 11px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border-radius: 9px;
+  background: rgb(
+    255 255 255 / 75%
+  );
+}
+
+.reader-preview-details i {
+  margin-top: 2px;
+  flex-shrink: 0;
+  color: #3b82f6;
+}
+
+.reader-preview-details span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.information-note {
+  margin-top: 18px;
+  padding: 13px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border-radius: 11px;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.information-note i {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.information-note p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+/* =========================================
+   NÚT HÀNH ĐỘNG
+========================================= */
 
 .form-actions {
   margin-top: 24px;
   display: flex;
-  justify-content: flex-end;
-  gap: 11px;
+  gap: 10px;
 }
 
-.form-actions button {
-  padding: 11px 19px;
-  border-radius: 7px;
+.cancel-button,
+.save-button {
+  min-height: 44px;
+  padding: 0 15px;
+  flex: 1;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 }
 
 .cancel-button {
-  border: 1px solid #d1d5db;
-  background: white;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #64748b;
 }
 
-.submit-button {
+.cancel-button:hover:not(
+    :disabled
+  ) {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.save-button {
   border: 0;
-  background: #2563eb;
-  color: white;
+  background: linear-gradient(
+    135deg,
+    #438df8,
+    #2563eb
+  );
+  color: #fff;
+  box-shadow:
+    0 7px 16px
+    rgb(37 99 235 / 20%);
 }
 
-.submit-button:disabled {
+.save-button:hover:not(
+    :disabled
+  ) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 20px
+    rgb(37 99 235 / 26%);
+}
+
+.cancel-button:disabled,
+.save-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+  transform: none;
 }
 
-.error-message {
-  margin-top: 0;
-  padding: 12px 14px;
-  border-radius: 7px;
-  background: #fee2e2;
-  color: #b91c1c;
+/* =========================================
+   LOADING
+========================================= */
+
+.loading-state {
+  min-height: 280px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  color: #64748b;
+}
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 1000px) {
+  .form-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-card {
+    position: static;
+    order: -1;
+  }
+
+  .reader-preview {
+    max-width: 440px;
+    margin: 0 auto;
+  }
 }
 
 @media (max-width: 650px) {
-  .reader-form {
-    padding: 18px;
+  .reader-form-page {
+    width: 100%;
+  }
+
+  .form-header,
+  .form-card {
+    padding: 20px;
+    border-radius: 17px;
+  }
+
+  .form-header h1 {
+    font-size: 25px;
   }
 
   .form-grid {
@@ -468,5 +1174,15 @@ textarea {
   .full-width {
     grid-column: auto;
   }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .cancel-button,
+  .save-button {
+    width: 100%;
+  }
+
 }
 </style>

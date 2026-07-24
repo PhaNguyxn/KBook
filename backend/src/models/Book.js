@@ -2,6 +2,15 @@ const mongoose = require("mongoose");
 
 const bookSchema = new mongoose.Schema(
   {
+    bookCode: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      uppercase: true,
+      index: true,
+    },
+
     title: {
       type: String,
       required: true,
@@ -14,22 +23,25 @@ const bookSchema = new mongoose.Schema(
       trim: true,
     },
 
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+
     publishYear: {
       type: Number,
       required: true,
-    },
-
-    isbn: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
+      min: 1000,
+      max: new Date().getFullYear(),
     },
 
     publisher: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Publisher",
       required: true,
+      index: true,
     },
 
     quantity: {
@@ -48,21 +60,26 @@ const bookSchema = new mongoose.Schema(
 
     image: {
       type: String,
+      trim: true,
       default: "",
     },
 
     description: {
       type: String,
+      trim: true,
       default: "",
     },
 
-    status: {
-      type: Boolean,
-      default: true,
+    category: {
+      type: String,
+      required: true,
+      trim: true,
+      index: true,
     },
   },
   {
     timestamps: true,
+    versionKey: false,
   },
 );
 

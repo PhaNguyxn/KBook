@@ -355,7 +355,7 @@ onMounted(loadDashboard);
 
         <div class="hero-content">
           <span class="hero-label">
-            Hệ thống quản lý thư viện
+            Hệ thống quản lý mượn sách
           </span>
 
           <h1 class="hero-title">
@@ -364,7 +364,7 @@ onMounted(loadDashboard);
 
           <p class="hero-subtitle">
             Theo dõi nhanh số lượng sách, độc giả
-            và tình hình mượn trả trong thư viện.
+            và tình hình mượn trả sách.
           </p>
         </div>
       </div>

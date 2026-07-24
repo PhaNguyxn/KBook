@@ -1,51 +1,123 @@
 const Reader = require("../models/Reader");
+const generateCode = require("../utils/generateCode");
 
-const getAllReaders = async (query) => {
+/* =========================================
+   HÀM HỖ TRỢ
+========================================= */
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function normalizePhone(value) {
+  return String(value || "")
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function validateBirthday(value) {
+  if (!value) {
+    throw new Error("Vui lòng chọn ngày sinh");
+  }
+
+  const birthday = new Date(value);
+
+  if (Number.isNaN(birthday.getTime())) {
+    throw new Error("Ngày sinh không hợp lệ");
+  }
+
+  const today = new Date();
+
+  birthday.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+
+  if (birthday >= today) {
+    throw new Error("Ngày sinh phải nhỏ hơn ngày hiện tại");
+  }
+
+  return birthday;
+}
+
+function validateGender(gender) {
+  const allowedGenders = ["Nam", "Nữ", "Khác"];
+
+  if (!allowedGenders.includes(gender)) {
+    throw new Error("Giới tính không hợp lệ");
+  }
+}
+
+function validatePhone(phone) {
+  if (!phone) {
+    throw new Error("Vui lòng nhập số điện thoại");
+  }
+
+  if (!/^[0-9]{9,11}$/.test(phone)) {
+    throw new Error("Số điện thoại phải gồm từ 9 đến 11 chữ số");
+  }
+}
+
+/* =========================================
+   LẤY DANH SÁCH ĐỘC GIẢ
+========================================= */
+
+const getAllReaders = async (query = {}) => {
   let {
     page = 1,
     limit = 10,
     keyword = "",
     gender = "",
-    status,
     sort = "",
   } = query;
 
   page = Math.max(Number(page) || 1, 1);
+
   limit = Math.max(Number(limit) || 10, 1);
+
+  /*
+   * Giới hạn số phần tử mỗi trang để tránh
+   * client gửi limit quá lớn.
+   */
+  limit = Math.min(limit, 100);
 
   const filter = {};
 
-  if (keyword.trim()) {
-    const searchKeyword = keyword.trim();
+  const searchKeyword = normalizeText(keyword);
+
+  if (searchKeyword) {
+    const safeKeyword = escapeRegex(searchKeyword);
 
     filter.$or = [
       {
         readerCode: {
-          $regex: searchKeyword,
+          $regex: safeKeyword,
           $options: "i",
         },
       },
       {
         firstName: {
-          $regex: searchKeyword,
+          $regex: safeKeyword,
           $options: "i",
         },
       },
       {
         lastName: {
-          $regex: searchKeyword,
+          $regex: safeKeyword,
           $options: "i",
         },
       },
       {
         phone: {
-          $regex: searchKeyword,
+          $regex: safeKeyword,
           $options: "i",
         },
       },
       {
         address: {
-          $regex: searchKeyword,
+          $regex: safeKeyword,
           $options: "i",
         },
       },
@@ -54,10 +126,6 @@ const getAllReaders = async (query) => {
 
   if (gender) {
     filter.gender = gender;
-  }
-
-  if (status !== undefined && status !== "") {
-    filter.status = status === "true";
   }
 
   let sortOption = {
@@ -79,60 +147,111 @@ const getAllReaders = async (query) => {
 
   const total = await Reader.countDocuments(filter);
 
+  const totalPages = Math.ceil(total / limit);
+
+  /*
+   * Tránh truy cập trang lớn hơn tổng số trang.
+   */
+  if (totalPages > 0 && page > totalPages) {
+    page = totalPages;
+  }
+
   const readers = await Reader.find(filter)
     .sort(sortOption)
     .skip((page - 1) * limit)
-    .limit(limit);
+    .limit(limit)
+    .lean();
 
   return {
     readers,
+
     pagination: {
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages,
+
+      hasPreviousPage: page > 1,
+
+      hasNextPage: page < totalPages,
     },
   };
 };
 
-const createReader = async (data) => {
-  const { readerCode, firstName, lastName, birthday, gender, address, phone } =
-    data;
+/* =========================================
+   TẠO ĐỘC GIẢ
+========================================= */
 
-  if (!readerCode || !firstName || !lastName || !birthday || !phone) {
-    throw new Error("Vui lòng nhập đầy đủ thông tin bắt buộc");
+const createReader = async (data = {}) => {
+  const firstName = normalizeText(data.firstName);
+
+  const lastName = normalizeText(data.lastName);
+
+  const gender = normalizeText(data.gender) || "Nam";
+
+  const phone = normalizePhone(data.phone);
+
+  const address = normalizeText(data.address);
+
+  if (!lastName) {
+    throw new Error("Vui lòng nhập họ độc giả");
   }
 
-  const existedReader = await Reader.findOne({
-    $or: [
-      {
-        readerCode: readerCode.trim(),
-      },
-      {
-        phone: phone.trim(),
-      },
-    ],
+  if (!firstName) {
+    throw new Error("Vui lòng nhập tên độc giả");
+  }
+
+  const birthday = validateBirthday(data.birthday);
+
+  validateGender(gender);
+  validatePhone(phone);
+
+  /*
+   * Chỉ kiểm tra trùng số điện thoại.
+   * Mã độc giả do hệ thống tự sinh.
+   */
+  const existedPhone = await Reader.exists({
+    phone,
   });
 
-  if (existedReader) {
-    if (existedReader.readerCode === readerCode.trim()) {
-      throw new Error("Mã độc giả đã tồn tại");
-    }
-
+  if (existedPhone) {
     throw new Error("Số điện thoại đã tồn tại");
   }
 
-  return await Reader.create({
-    readerCode: readerCode.trim(),
-    firstName: firstName.trim(),
-    lastName: lastName.trim(),
+  /*
+   * Tự sinh mã:
+   * DG001, DG002, DG003...
+   *
+   * Vòng lặp giúp bỏ qua mã đã tồn tại
+   * nếu counter chưa đồng bộ với dữ liệu cũ.
+   */
+  let readerCode;
+  let codeExists = true;
+
+  while (codeExists) {
+    readerCode = await generateCode("reader", "DG", 3);
+
+    codeExists = await Reader.exists({
+      readerCode,
+    });
+  }
+
+  const reader = await Reader.create({
+    readerCode,
+    firstName,
+    lastName,
     birthday,
-    gender: gender || "Nam",
-    address: address?.trim() || "",
-    phone: phone.trim(),
-    status: true,
+    gender,
+    address,
+    phone,
   });
+
+  return reader;
 };
+
+/* =========================================
+   LẤY CHI TIẾT ĐỘC GIẢ
+========================================= */
 
 const getReaderById = async (id) => {
   const reader = await Reader.findById(id);
@@ -144,29 +263,65 @@ const getReaderById = async (id) => {
   return reader;
 };
 
-const updateReader = async (id, data) => {
+/* =========================================
+   CẬP NHẬT ĐỘC GIẢ
+========================================= */
+
+const updateReader = async (id, data = {}) => {
   const reader = await Reader.findById(id);
 
   if (!reader) {
     throw new Error("Không tìm thấy độc giả");
   }
 
-  if (data.readerCode && data.readerCode.trim() !== reader.readerCode) {
-    const readerCodeExist = await Reader.findOne({
-      readerCode: data.readerCode.trim(),
-      _id: {
-        $ne: id,
-      },
-    });
+  /*
+   * Không sử dụng data.readerCode.
+   * Mã độc giả không được phép thay đổi.
+   */
+  const firstName =
+    data.firstName !== undefined
+      ? normalizeText(data.firstName)
+      : reader.firstName;
 
-    if (readerCodeExist) {
-      throw new Error("Mã độc giả đã tồn tại");
-    }
+  const lastName =
+    data.lastName !== undefined
+      ? normalizeText(data.lastName)
+      : reader.lastName;
+
+  const gender =
+    data.gender !== undefined ? normalizeText(data.gender) : reader.gender;
+
+  const phone =
+    data.phone !== undefined ? normalizePhone(data.phone) : reader.phone;
+
+  const address =
+    data.address !== undefined ? normalizeText(data.address) : reader.address;
+
+  if (!lastName) {
+    throw new Error("Vui lòng nhập họ độc giả");
   }
 
-  if (data.phone && data.phone.trim() !== reader.phone) {
-    const phoneExist = await Reader.findOne({
-      phone: data.phone.trim(),
+  if (!firstName) {
+    throw new Error("Vui lòng nhập tên độc giả");
+  }
+
+  validateGender(gender);
+  validatePhone(phone);
+
+  let birthday = reader.birthday;
+
+  if (data.birthday !== undefined) {
+    birthday = validateBirthday(data.birthday);
+  }
+
+  /*
+   * Kiểm tra trùng số điện thoại với
+   * các độc giả khác.
+   */
+  if (phone !== reader.phone) {
+    const phoneExist = await Reader.exists({
+      phone,
+
       _id: {
         $ne: id,
       },
@@ -177,27 +332,12 @@ const updateReader = async (id, data) => {
     }
   }
 
-  if (data.readerCode) {
-    data.readerCode = data.readerCode.trim();
-  }
-
-  if (data.firstName) {
-    data.firstName = data.firstName.trim();
-  }
-
-  if (data.lastName) {
-    data.lastName = data.lastName.trim();
-  }
-
-  if (data.phone) {
-    data.phone = data.phone.trim();
-  }
-
-  if (data.address !== undefined) {
-    data.address = data.address.trim();
-  }
-
-  Object.assign(reader, data);
+  reader.firstName = firstName;
+  reader.lastName = lastName;
+  reader.birthday = birthday;
+  reader.gender = gender;
+  reader.phone = phone;
+  reader.address = address;
 
   await reader.save();
 
@@ -205,18 +345,18 @@ const updateReader = async (id, data) => {
 };
 
 const deleteReader = async (id) => {
-  const reader = await Reader.findById(id);
+  const reader = await Reader.findByIdAndDelete(id);
 
   if (!reader) {
     throw new Error("Không tìm thấy độc giả");
   }
 
-  reader.status = false;
-
-  await reader.save();
-
   return reader;
 };
+
+/* =========================================
+   EXPORT
+========================================= */
 
 module.exports = {
   getAllReaders,

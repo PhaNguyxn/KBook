@@ -1,9 +1,14 @@
 const mongoose = require("mongoose");
 
 const Publisher = require("../models/Publisher");
+const generateCode = require("../utils/generateCode");
+const Book = require("../models/Book");
+/* ==================================================
+   HÀM HỖ TRỢ
+================================================== */
 
 function escapeRegex(value = "") {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeBoolean(value) {
@@ -11,11 +16,11 @@ function normalizeBoolean(value) {
     return value;
   }
 
-  if (value === "true") {
+  if (value === "true" || value === "1" || value === 1) {
     return true;
   }
 
-  if (value === "false") {
+  if (value === "false" || value === "0" || value === 0) {
     return false;
   }
 
@@ -23,16 +28,159 @@ function normalizeBoolean(value) {
 }
 
 function normalizePhone(value = "") {
-  return String(value).replace(/\s/g, "").trim();
+  return String(value).replace(/\s+/g, "").trim();
 }
 
 function normalizeEmail(value = "") {
   return String(value).trim().toLowerCase();
 }
 
-// ==================================================
-// LẤY DANH SÁCH NHÀ XUẤT BẢN CÓ PHÂN TRANG
-// ==================================================
+function normalizePublisherName(value = "") {
+  return String(value).trim().toLocaleLowerCase("vi-VN");
+}
+
+/**
+ * Trả về tên field gây lỗi duplicate key.
+ */
+function getDuplicateField(error) {
+  if (!error || error.code !== 11000) {
+    return "";
+  }
+
+  if (error.keyPattern) {
+    return Object.keys(error.keyPattern)[0] || "";
+  }
+
+  if (error.keyValue) {
+    return Object.keys(error.keyValue)[0] || "";
+  }
+
+  return "";
+}
+
+/**
+ * Chuyển lỗi duplicate key của MongoDB
+ * thành thông báo dễ hiểu.
+ */
+function throwDuplicateError(error) {
+  const duplicateField = getDuplicateField(error);
+
+  switch (duplicateField) {
+    case "publisherCode":
+      throw new Error("Mã nhà xuất bản đã tồn tại");
+
+    case "publisherName":
+      throw new Error("Tên nhà xuất bản đã tồn tại");
+
+    case "email":
+      throw new Error("Email nhà xuất bản đã tồn tại");
+
+    case "phone":
+      throw new Error("Số điện thoại nhà xuất bản đã tồn tại");
+
+    default:
+      throw error;
+  }
+}
+
+async function generatePublisherCode() {
+  const maximumAttempts = 10000;
+
+  for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+    const publisherCode = await generateCode("publisher", "NXB", 3);
+
+    const codeExisted = await Publisher.exists({
+      publisherCode,
+    });
+
+    if (!codeExisted) {
+      return publisherCode;
+    }
+  }
+
+  throw new Error("Không thể tạo mã nhà xuất bản tự động");
+}
+
+
+async function checkPublisherDuplicate({
+  publisherName = "",
+  email = "",
+  phone = "",
+  excludeId = null,
+}) {
+  const duplicateConditions = [];
+
+  if (publisherName) {
+    duplicateConditions.push({
+      publisherName: {
+        $regex: `^${escapeRegex(publisherName)}$`,
+        $options: "i",
+      },
+    });
+  }
+
+  if (email) {
+    duplicateConditions.push({
+      email,
+    });
+  }
+
+  if (phone) {
+    duplicateConditions.push({
+      phone,
+    });
+  }
+
+  if (duplicateConditions.length === 0) {
+    return null;
+  }
+
+  const filter = {
+    $or: duplicateConditions,
+  };
+
+  if (excludeId) {
+    filter._id = {
+      $ne: excludeId,
+    };
+  }
+
+  return Publisher.findOne(filter).lean();
+}
+
+function checkDuplicateInformation(
+  existedPublisher,
+  { publisherName = "", email = "", phone = "" },
+) {
+  if (!existedPublisher) {
+    return;
+  }
+
+  const existedName = normalizePublisherName(existedPublisher.publisherName);
+
+  const inputName = normalizePublisherName(publisherName);
+
+  if (inputName && existedName === inputName) {
+    if (existedPublisher.status === false) {
+      throw new Error("Nhà xuất bản này đã tồn tại nhưng đang bị khóa");
+    }
+
+    throw new Error("Tên nhà xuất bản đã tồn tại");
+  }
+
+  if (email && existedPublisher.email === email) {
+    throw new Error("Email nhà xuất bản đã tồn tại");
+  }
+
+  if (phone && existedPublisher.phone === phone) {
+    throw new Error("Số điện thoại nhà xuất bản đã tồn tại");
+  }
+}
+
+/* ==================================================
+   LẤY DANH SÁCH NHÀ XUẤT BẢN
+================================================== */
+
 const getAllPublishers = async (query = {}) => {
   let {
     page = 1,
@@ -50,7 +198,14 @@ const getAllPublishers = async (query = {}) => {
 
   const filter = {};
 
-  // Tìm kiếm theo mã, tên, email, số điện thoại, địa chỉ
+  /*
+   * Tìm kiếm theo:
+   * - Mã nhà xuất bản
+   * - Tên nhà xuất bản
+   * - Email
+   * - Số điện thoại
+   * - Địa chỉ
+   */
   if (keyword) {
     const safeKeyword = escapeRegex(keyword);
 
@@ -88,13 +243,10 @@ const getAllPublishers = async (query = {}) => {
     ];
   }
 
-  // Lọc trạng thái
-  if (status === "true") {
-    filter.status = true;
-  }
+  const normalizedStatus = normalizeBoolean(status);
 
-  if (status === "false") {
-    filter.status = false;
+  if (typeof normalizedStatus === "boolean") {
+    filter.status = normalizedStatus;
   }
 
   const sortOptions = {
@@ -130,8 +282,8 @@ const getAllPublishers = async (query = {}) => {
   const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
 
   /*
-   * Tránh trường hợp người dùng đang ở trang 4,
-   * sau khi xóa dữ liệu chỉ còn 3 trang.
+   * Tránh trường hợp đang ở trang lớn hơn
+   * tổng số trang sau khi dữ liệu thay đổi.
    */
   const currentPage = totalPages > 0 ? Math.min(page, totalPages) : 1;
 
@@ -159,9 +311,10 @@ const getAllPublishers = async (query = {}) => {
   };
 };
 
-// ==================================================
-// LẤY CHI TIẾT NHÀ XUẤT BẢN
-// ==================================================
+/* ==================================================
+   LẤY CHI TIẾT NHÀ XUẤT BẢN
+================================================== */
+
 const getPublisherById = async (id) => {
   if (!mongoose.isValidObjectId(id)) {
     throw new Error("Mã nhà xuất bản không hợp lệ");
@@ -176,92 +329,70 @@ const getPublisherById = async (id) => {
   return publisher;
 };
 
-// ==================================================
-// THÊM NHÀ XUẤT BẢN
-// ==================================================
-const createPublisher = async (data = {}) => {
-  const publisherCode = String(data.publisherCode || "")
-    .trim()
-    .toUpperCase();
+/* ==================================================
+   THÊM NHÀ XUẤT BẢN
+================================================== */
 
-  const publisherName = String(data.publisherName || "").trim();
+const createPublisher = async (data = {}) => {
+  const publisherName = String(data.publisherName || data.name || "").trim();
 
   const email = normalizeEmail(data.email);
-  const phone = normalizePhone(data.phone);
-  const address = String(data.address || "").trim();
 
-  if (!publisherCode) {
-    throw new Error("Vui lòng nhập mã nhà xuất bản");
-  }
+  const phone = normalizePhone(data.phone);
+
+  const address = String(data.address || "").trim();
 
   if (!publisherName) {
     throw new Error("Vui lòng nhập tên nhà xuất bản");
   }
 
-  const duplicateConditions = [
-    {
-      publisherCode,
-    },
-    {
-      publisherName: {
-        $regex: `^${escapeRegex(publisherName)}$`,
-        $options: "i",
-      },
-    },
-  ];
-
-  if (email) {
-    duplicateConditions.push({
-      email,
-    });
-  }
-
-  if (phone) {
-    duplicateConditions.push({
-      phone,
-    });
-  }
-
-  const existedPublisher = await Publisher.findOne({
-    $or: duplicateConditions,
-  });
-
-  if (existedPublisher) {
-    if (existedPublisher.publisherCode === publisherCode) {
-      throw new Error("Mã nhà xuất bản đã tồn tại");
-    }
-
-    if (
-      existedPublisher.publisherName?.trim().toLowerCase() ===
-      publisherName.toLowerCase()
-    ) {
-      throw new Error("Tên nhà xuất bản đã tồn tại");
-    }
-
-    if (email && existedPublisher.email === email) {
-      throw new Error("Email nhà xuất bản đã tồn tại");
-    }
-
-    if (phone && existedPublisher.phone === phone) {
-      throw new Error("Số điện thoại đã tồn tại");
-    }
-  }
-
-  const publisher = await Publisher.create({
-    publisherCode,
+  /*
+   * Kiểm tra trùng trước khi sinh mã.
+   */
+  const existedPublisher = await checkPublisherDuplicate({
     publisherName,
     email,
     phone,
-    address,
-    status: true,
   });
 
-  return publisher;
+  checkDuplicateInformation(existedPublisher, {
+    publisherName,
+    email,
+    phone,
+  });
+
+  /*
+   * Mã được sinh hoàn toàn ở backend.
+   * Frontend không cần gửi publisherCode.
+   */
+  const publisherCode = await generatePublisherCode();
+
+  try {
+    const publisher = await Publisher.create({
+      publisherCode,
+      publisherName,
+
+      email: email || undefined,
+      phone: phone || undefined,
+      address,
+
+      status: true,
+    });
+
+    return publisher;
+  } catch (error) {
+    if (error?.code === 11000) {
+      throwDuplicateError(error);
+    }
+
+    throw error;
+  }
 };
 
-// ==================================================
-// CẬP NHẬT NHÀ XUẤT BẢN
-// ==================================================
+/* ==================================================
+   CẬP NHẬT NHÀ XUẤT BẢN
+================================================== */
+
 const updatePublisher = async (id, data = {}) => {
   if (!mongoose.isValidObjectId(id)) {
     throw new Error("Mã nhà xuất bản không hợp lệ");
@@ -273,48 +404,28 @@ const updatePublisher = async (id, data = {}) => {
     throw new Error("Không tìm thấy nhà xuất bản");
   }
 
-  if (data.publisherCode !== undefined) {
-    const publisherCode = String(data.publisherCode).trim().toUpperCase();
+  /*
+   * Không cập nhật publisherCode.
+   *
+   * Mã nhà xuất bản được tự sinh khi tạo
+   * và giữ nguyên trong suốt quá trình sử dụng.
+   */
 
-    if (!publisherCode) {
-      throw new Error("Mã nhà xuất bản không được để trống");
-    }
-
-    const codeExisted = await Publisher.findOne({
-      _id: {
-        $ne: id,
-      },
-      publisherCode,
-    });
-
-    if (codeExisted) {
-      throw new Error("Mã nhà xuất bản đã tồn tại");
-    }
-
-    publisher.publisherCode = publisherCode;
-  }
-
-  if (data.publisherName !== undefined) {
-    const publisherName = String(data.publisherName).trim();
+  if (data.publisherName !== undefined || data.name !== undefined) {
+    const publisherName = String(data.publisherName ?? data.name ?? "").trim();
 
     if (!publisherName) {
       throw new Error("Tên nhà xuất bản không được để trống");
     }
 
-    const nameExisted = await Publisher.findOne({
-      _id: {
-        $ne: id,
-      },
-
-      publisherName: {
-        $regex: `^${escapeRegex(publisherName)}$`,
-        $options: "i",
-      },
+    const existedPublisher = await checkPublisherDuplicate({
+      publisherName,
+      excludeId: id,
     });
 
-    if (nameExisted) {
-      throw new Error("Tên nhà xuất bản đã tồn tại");
-    }
+    checkDuplicateInformation(existedPublisher, {
+      publisherName,
+    });
 
     publisher.publisherName = publisherName;
   }
@@ -323,38 +434,34 @@ const updatePublisher = async (id, data = {}) => {
     const email = normalizeEmail(data.email);
 
     if (email) {
-      const emailExisted = await Publisher.findOne({
-        _id: {
-          $ne: id,
-        },
+      const existedPublisher = await checkPublisherDuplicate({
         email,
+        excludeId: id,
       });
 
-      if (emailExisted) {
-        throw new Error("Email nhà xuất bản đã tồn tại");
-      }
+      checkDuplicateInformation(existedPublisher, {
+        email,
+      });
     }
 
-    publisher.email = email;
+    publisher.email = email || undefined;
   }
 
   if (data.phone !== undefined) {
     const phone = normalizePhone(data.phone);
 
     if (phone) {
-      const phoneExisted = await Publisher.findOne({
-        _id: {
-          $ne: id,
-        },
+      const existedPublisher = await checkPublisherDuplicate({
         phone,
+        excludeId: id,
       });
 
-      if (phoneExisted) {
-        throw new Error("Số điện thoại đã tồn tại");
-      }
+      checkDuplicateInformation(existedPublisher, {
+        phone,
+      });
     }
 
-    publisher.phone = phone;
+    publisher.phone = phone || undefined;
   }
 
   if (data.address !== undefined) {
@@ -371,34 +478,136 @@ const updatePublisher = async (id, data = {}) => {
     publisher.status = status;
   }
 
-  await publisher.save();
+  try {
+    await publisher.save();
 
-  return publisher;
+    return publisher;
+  } catch (error) {
+    if (error?.code === 11000) {
+      throwDuplicateError(error);
+    }
+
+    throw error;
+  }
 };
 
 // ==================================================
-// KHÓA NHÀ XUẤT BẢN
+// XÓA NHÀ XUẤT BẢN
 // ==================================================
 const deletePublisher = async (id) => {
   if (!mongoose.isValidObjectId(id)) {
-    throw new Error("Mã nhà xuất bản không hợp lệ");
+    throw new Error(
+      "Mã nhà xuất bản không hợp lệ",
+    );
   }
 
-  const publisher = await Publisher.findById(id);
+  const publisher =
+    await Publisher.findById(id);
 
   if (!publisher) {
-    throw new Error("Không tìm thấy nhà xuất bản");
+    throw new Error(
+      "Không tìm thấy nhà xuất bản",
+    );
   }
 
-  if (!publisher.status) {
-    throw new Error("Nhà xuất bản đã bị xóa trước đó");
+  /*
+   * Không cho xóa nhà xuất bản nếu vẫn còn
+   * sách đang tham chiếu đến nhà xuất bản này.
+   */
+  const relatedBook =
+    await Book.exists({
+      publisher: id,
+    });
+
+  if (relatedBook) {
+    throw new Error(
+      "Không thể xóa nhà xuất bản vì vẫn còn sách thuộc nhà xuất bản này",
+    );
   }
 
-  publisher.status = false;
+  await Publisher.deleteOne({
+    _id: id,
+  });
 
-  await publisher.save();
+  return {
+    _id: publisher._id,
+    publisherCode:
+      publisher.publisherCode,
+    publisherName:
+      publisher.publisherName,
+  };
+};
 
-  return publisher;
+// ==================================================
+// TÌM HOẶC TẠO NHÀ XUẤT BẢN THEO TÊN
+// ==================================================
+const findOrCreatePublisherByName = async (
+  name,
+) => {
+  const publisherName = String(
+    name || "",
+  ).trim();
+
+  if (!publisherName) {
+    throw new Error(
+      "Vui lòng nhập tên nhà xuất bản",
+    );
+  }
+
+  /*
+   * Tìm chính xác theo tên nhưng không phân biệt
+   * chữ hoa và chữ thường.
+   */
+  const existedPublisher =
+    await Publisher.findOne({
+      publisherName: {
+        $regex:
+          `^${escapeRegex(
+            publisherName,
+          )}$`,
+        $options: "i",
+      },
+    });
+
+  if (existedPublisher) {
+    return existedPublisher;
+  }
+
+  /*
+   * Chưa tồn tại thì tự tạo nhà xuất bản mới.
+   */
+  const publisherCode =
+    await generatePublisherCode();
+
+  try {
+    return await Publisher.create({
+      publisherCode,
+      publisherName,
+      address: "",
+      status: true,
+    });
+  } catch (error) {
+    /*
+     * Trường hợp hai yêu cầu cùng tạo một tên,
+     * thử tìm lại trước khi báo lỗi.
+     */
+    const publisher =
+      await Publisher.findOne({
+        publisherName: {
+          $regex:
+            `^${escapeRegex(
+              publisherName,
+            )}$`,
+          $options: "i",
+        },
+      });
+
+    if (publisher) {
+      return publisher;
+    }
+
+    throw error;
+  }
 };
 
 module.exports = {
@@ -407,4 +616,5 @@ module.exports = {
   createPublisher,
   updatePublisher,
   deletePublisher,
+  findOrCreatePublisherByName,
 };

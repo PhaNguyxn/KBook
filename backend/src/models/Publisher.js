@@ -4,31 +4,35 @@ const publisherSchema = new mongoose.Schema(
   {
     publisherCode: {
       type: String,
-      required: [true, "Mã nhà xuất bản không được để trống"],
+      required: true,
       unique: true,
       trim: true,
       uppercase: true,
-      maxlength: 30,
+      index: true,
     },
 
     publisherName: {
       type: String,
-      required: [true, "Tên nhà xuất bản không được để trống"],
+      required: true,
+      unique: true,
       trim: true,
-      maxlength: 200,
     },
 
     email: {
       type: String,
       trim: true,
       lowercase: true,
-      default: "",
+      unique: true,
+      sparse: true,
+      default: undefined,
     },
 
     phone: {
       type: String,
       trim: true,
-      default: "",
+      unique: true,
+      sparse: true,
+      default: undefined,
     },
 
     address: {
@@ -47,13 +51,5 @@ const publisherSchema = new mongoose.Schema(
     versionKey: false,
   },
 );
-
-publisherSchema.index({
-  publisherName: 1,
-});
-
-publisherSchema.index({
-  status: 1,
-});
 
 module.exports = mongoose.model("Publisher", publisherSchema);

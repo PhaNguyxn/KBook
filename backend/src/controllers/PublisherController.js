@@ -98,15 +98,13 @@ const deletePublisher = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Khóa nhà xuất bản thành công",
+      message: "Xóa nhà xuất bản thành công",
       data: publisher,
     });
   } catch (error) {
-    console.error("Delete publisher error:", error);
-
     return res.status(400).json({
       success: false,
-      message: error.message || "Không thể khóa nhà xuất bản",
+      message: error.message || "Không thể xóa nhà xuất bản",
     });
   }
 };

@@ -48,7 +48,9 @@ function getImageUrl(value) {
 
   if (
     value.startsWith("http://") ||
-    value.startsWith("https://")
+    value.startsWith("https://") ||
+    value.startsWith("data:") ||
+    value.startsWith("blob:")
   ) {
     return value;
   }
@@ -64,12 +66,44 @@ function getImageUrl(value) {
 }
 
 function getPublisherName() {
+  if (!book.value) {
+    return "Chưa cập nhật";
+  }
+
+  if (
+    typeof book.value.publisher ===
+    "object"
+  ) {
+    return (
+      book.value.publisher
+        ?.publisherName ||
+      "Chưa cập nhật"
+    );
+  }
+
   return (
-    book.value?.publisher
-      ?.publisherName ||
-    book.value?.publisherName ||
+    book.value.publisherName ||
     "Chưa cập nhật"
   );
+}
+
+function formatPrice(value) {
+  const price = Number(value);
+
+  if (
+    !Number.isFinite(price)
+  ) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat(
+    "vi-VN",
+    {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    },
+  ).format(price);
 }
 
 async function loadBook() {
@@ -82,9 +116,17 @@ async function loadBook() {
         route.params.id,
       );
 
-    book.value =
+    const data =
       response?.data?.data ||
       response?.data;
+
+    if (!data) {
+      throw new Error(
+        "Không tìm thấy thông tin sách",
+      );
+    }
+
+    book.value = data;
   } catch (error) {
     errorMessage.value =
       getErrorMessage(
@@ -101,22 +143,26 @@ async function deleteBook() {
     return;
   }
 
-  const confirmed = window.confirm(
-    `Bạn có chắc muốn xóa vĩnh viễn sách "${book.value.title}"?`,
-  );
+  const confirmed =
+    window.confirm(
+      `Bạn có chắc muốn xóa vĩnh viễn sách "${book.value.title}"?`,
+    );
 
   if (!confirmed) {
     return;
   }
 
   deleting.value = true;
+  errorMessage.value = "";
 
   try {
     await bookApi.delete(
       book.value._id,
     );
 
-    router.push("/books");
+    await router.push(
+      "/books",
+    );
   } catch (error) {
     errorMessage.value =
       getErrorMessage(
@@ -128,7 +174,23 @@ async function deleteBook() {
   }
 }
 
-onMounted(loadBook);
+function goBack() {
+  router.push("/books");
+}
+
+function goToEdit() {
+  if (!book.value?._id) {
+    return;
+  }
+
+  router.push(
+    `/books/${book.value._id}/edit`,
+  );
+}
+
+onMounted(() => {
+  loadBook();
+});
 </script>
 
 <template>
@@ -147,7 +209,10 @@ onMounted(loadBook);
       <div
         class="spinner-border text-primary"
       />
-      Đang tải thông tin sách...
+
+      <span>
+        Đang tải thông tin sách...
+      </span>
     </div>
 
     <template v-else-if="book">
@@ -155,9 +220,12 @@ onMounted(loadBook);
         <button
           type="button"
           class="back-button"
-          @click="router.push('/books')"
+          @click="goBack"
         >
-          <i class="bi bi-arrow-left" />
+          <i
+            class="bi bi-arrow-left"
+          />
+
           Quay lại danh sách
         </button>
 
@@ -168,13 +236,12 @@ onMounted(loadBook);
           <button
             type="button"
             class="edit-button"
-            @click="
-              router.push(
-                `/books/${book._id}/edit`,
-              )
-            "
+            @click="goToEdit"
           >
-            <i class="bi bi-pencil-square" />
+            <i
+              class="bi bi-pencil-square"
+            />
+
             Chỉnh sửa
           </button>
 
@@ -184,7 +251,10 @@ onMounted(loadBook);
             :disabled="deleting"
             @click="deleteBook"
           >
-            <i class="bi bi-trash3" />
+            <i
+              class="bi bi-trash3"
+            />
+
             {{
               deleting
                 ? "Đang xóa..."
@@ -194,11 +264,15 @@ onMounted(loadBook);
         </div>
       </div>
 
-      <div class="detail-card book-detail">
+      <div
+        class="detail-card book-detail"
+      >
         <div class="cover-section">
           <img
             v-if="book.image"
-            :src="getImageUrl(book.image)"
+            :src="
+              getImageUrl(book.image)
+            "
             :alt="book.title"
           />
 
@@ -210,61 +284,117 @@ onMounted(loadBook);
           </div>
         </div>
 
-        <div class="information-section">
+        <div
+          class="information-section"
+        >
           <span class="book-code">
-            {{ book.bookCode }}
+            {{
+              book.bookCode ||
+              "Chưa có mã sách"
+            }}
           </span>
 
           <h1>{{ book.title }}</h1>
 
           <p class="author">
             <i class="bi bi-person" />
-            {{ book.author }}
+
+            {{
+              book.author ||
+              "Chưa cập nhật tác giả"
+            }}
           </p>
 
-          <div class="information-grid">
+          <div
+            class="information-grid"
+          >
             <div>
               <span>Thể loại</span>
-              <strong>
-                {{ book.category || "—" }}
-              </strong>
-            </div>
 
-            <div>
-              <span>Nhà xuất bản</span>
-              <strong>
-                {{ getPublisherName() }}
-              </strong>
-            </div>
-
-            <div>
-              <span>ISBN</span>
-              <strong>
-                {{ book.isbn || "—" }}
-              </strong>
-            </div>
-
-            <div>
-              <span>Năm xuất bản</span>
               <strong>
                 {{
-                  book.publicationYear ||
+                  book.category ||
                   "—"
                 }}
               </strong>
             </div>
 
             <div>
-              <span>Tổng số lượng</span>
+              <span>
+                Nhà xuất bản
+              </span>
+
               <strong>
-                {{ book.quantity || 0 }}
+                {{
+                  getPublisherName()
+                }}
+              </strong>
+            </div>
+
+            <div>
+              <span>Đơn giá</span>
+
+              <strong class="price">
+                {{
+                  formatPrice(
+                    book.price,
+                  )
+                }}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Năm xuất bản
+              </span>
+
+              <strong>
+                {{
+                  book.publishYear ||
+                  "—"
+                }}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Tổng số lượng
+              </span>
+
+              <strong>
+                {{
+                  book.quantity ?? 0
+                }}
               </strong>
             </div>
 
             <div>
               <span>Còn lại</span>
+
               <strong class="available">
-                {{ book.available || 0 }}
+                {{
+                  book.available ?? 0
+                }}
+              </strong>
+            </div>
+
+            <div>
+              <span>Đang được mượn</span>
+
+              <strong class="borrowed">
+                {{
+                  Math.max(
+                    Number(
+                      book.quantity ||
+                        0,
+                    ) -
+                      Number(
+                        book.available ||
+                          0,
+                      ),
+                    0,
+                  )
+                }}
               </strong>
             </div>
           </div>
@@ -282,6 +412,27 @@ onMounted(loadBook);
         </div>
       </div>
     </template>
+
+    <div
+      v-else
+      class="detail-card empty-state"
+    >
+      <i
+        class="bi bi-exclamation-circle"
+      />
+
+      <p>
+        Không tìm thấy thông tin sách.
+      </p>
+
+      <button
+        type="button"
+        class="back-button"
+        @click="goBack"
+      >
+        Quay lại danh sách
+      </button>
+    </div>
   </section>
 </template>
 
@@ -305,6 +456,7 @@ onMounted(loadBook);
   padding: 0 15px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   border-radius: 10px;
   font-weight: 700;
@@ -333,17 +485,25 @@ onMounted(loadBook);
   color: #b91c1c;
 }
 
+.delete-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .detail-card {
   border: 1px solid #e5edf7;
   border-radius: 22px;
   background: #fff;
-  box-shadow: 0 12px 32px rgb(15 23 42 / 7%);
+  box-shadow:
+    0 12px 32px
+    rgb(15 23 42 / 7%);
 }
 
 .book-detail {
   padding: 32px;
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns:
+    300px minmax(0, 1fr);
   gap: 38px;
 }
 
@@ -352,7 +512,9 @@ onMounted(loadBook);
   overflow: hidden;
   border-radius: 17px;
   background: #f1f5f9;
-  box-shadow: 0 12px 26px rgb(15 23 42 / 13%);
+  box-shadow:
+    0 12px 26px
+    rgb(15 23 42 / 13%);
 }
 
 .cover-section img {
@@ -376,6 +538,7 @@ onMounted(loadBook);
 
 .information-section h1 {
   margin: 8px 0;
+  overflow-wrap: anywhere;
   color: #1e3a8a;
   font-size: 34px;
 }
@@ -394,6 +557,7 @@ onMounted(loadBook);
 }
 
 .information-grid div {
+  min-width: 0;
   padding: 15px;
   border-radius: 11px;
   background: #f8fafc;
@@ -411,11 +575,22 @@ onMounted(loadBook);
 }
 
 .information-grid strong {
+  overflow-wrap: anywhere;
   color: #334155;
+}
+
+.information-grid .price {
+  color: #2563eb;
+  font-size: 18px;
 }
 
 .information-grid .available {
   color: #059669;
+  font-size: 20px;
+}
+
+.information-grid .borrowed {
+  color: #d97706;
   font-size: 20px;
 }
 
@@ -431,15 +606,33 @@ onMounted(loadBook);
 .description p {
   color: #64748b;
   line-height: 1.8;
+  overflow-wrap: anywhere;
   white-space: pre-line;
 }
 
-.loading-state {
+.loading-state,
+.empty-state {
   min-height: 300px;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 12px;
+}
+
+.empty-state {
+  padding: 30px;
+  flex-direction: column;
+  color: #64748b;
+  text-align: center;
+}
+
+.empty-state i {
+  color: #f59e0b;
+  font-size: 42px;
+}
+
+.empty-state p {
+  margin: 0;
 }
 
 @media (max-width: 900px) {
@@ -448,8 +641,14 @@ onMounted(loadBook);
   }
 
   .cover-section {
+    width: 100%;
     max-width: 320px;
     margin: auto;
+  }
+
+  .information-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -465,11 +664,14 @@ onMounted(loadBook);
   .edit-button,
   .delete-button {
     flex: 1;
-    justify-content: center;
   }
 
   .book-detail {
     padding: 20px;
+  }
+
+  .information-section h1 {
+    font-size: 27px;
   }
 
   .information-grid {

@@ -71,19 +71,22 @@ const updateReader = async (req, res) => {
   }
 };
 
-// Xóa độc giả (Soft Delete)
+// Xóa độc giả 
 const deleteReader = async (req, res) => {
   try {
-    await ReaderService.deleteReader(req.params.id);
+    const reader = await ReaderService.deleteReader(req.params.id);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Xóa độc giả thành công",
+      data: reader,
     });
   } catch (error) {
-    res.status(400).json({
+    console.error("Delete reader error:", error);
+
+    return res.status(404).json({
       success: false,
-      message: error.message,
+      message: error.message || "Không thể xóa độc giả",
     });
   }
 };

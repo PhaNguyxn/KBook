@@ -13,7 +13,6 @@ import {
 } from "vue-router";
 
 import { bookApi } from "@/api/bookApi";
-import { publisherApi } from "@/api/publisherApi";
 import { getErrorMessage } from "@/utils/error";
 
 const route = useRoute();
@@ -21,23 +20,22 @@ const router = useRouter();
 
 const loading = ref(false);
 const submitting = ref(false);
-const loadingPublishers = ref(false);
-
 const errorMessage = ref("");
-const publishers = ref([]);
 
 const selectedImage = ref(null);
 const previewUrl = ref("");
 const currentImage = ref("");
 
+const currentYear =
+  new Date().getFullYear();
+
 const form = reactive({
-  bookCode: "",
   title: "",
   author: "",
   category: "",
-  publisher: "",
-  isbn: "",
-  publicationYear: "",
+  publisherName: "",
+  price: 0,
+  publishYear: "",
   quantity: 1,
   image: "",
   description: "",
@@ -91,46 +89,13 @@ const displayedImage = computed(() => {
   );
 });
 
-async function loadPublishers() {
-  loadingPublishers.value = true;
-
-  try {
-    const response =
-      await publisherApi.getAll({
-        page: 1,
-        limit: 100,
-        status: true,
-        sort: "name-asc",
-      });
-
-    const data =
-      response?.data?.data ??
-      response?.data ??
-      {};
-
-    publishers.value =
-      data.publishers ||
-      data.items ||
-      (Array.isArray(data)
-        ? data
-        : []);
-  } catch (error) {
-    errorMessage.value =
-      getErrorMessage(
-        error,
-        "Không thể tải nhà xuất bản",
-      );
-  } finally {
-    loadingPublishers.value = false;
-  }
-}
-
 async function loadBook() {
   if (!isEditing.value) {
     return;
   }
 
   loading.value = true;
+  errorMessage.value = "";
 
   try {
     const response =
@@ -142,8 +107,11 @@ async function loadBook() {
       response?.data?.data ||
       response?.data;
 
-    form.bookCode =
-      book.bookCode || "";
+    if (!book) {
+      throw new Error(
+        "Không tìm thấy thông tin sách",
+      );
+    }
 
     form.title =
       book.title || "";
@@ -154,17 +122,26 @@ async function loadBook() {
     form.category =
       book.category || "";
 
-    form.publisher =
+    /*
+     * Backend trả về publisher đã populate:
+     *
+     * publisher: {
+     *   _id: "...",
+     *   publisherName: "NXB Trẻ"
+     * }
+     */
+    form.publisherName =
       typeof book.publisher ===
       "object"
-        ? book.publisher?._id || ""
-        : book.publisher || "";
+        ? book.publisher
+            ?.publisherName || ""
+        : "";
 
-    form.isbn =
-      book.isbn || "";
+    form.price =
+      Number(book.price) || 0;
 
-    form.publicationYear =
-      book.publicationYear || "";
+    form.publishYear =
+      book.publishYear || "";
 
     form.quantity =
       Number(book.quantity) || 0;
@@ -175,6 +152,10 @@ async function loadBook() {
     currentImage.value =
       book.image || "";
 
+    /*
+     * Xóa URL nhập tay vì ảnh hiện tại
+     * đã được lưu trong currentImage.
+     */
     form.image = "";
   } catch (error) {
     errorMessage.value =
@@ -194,6 +175,8 @@ function handleImageChange(event) {
   if (!file) {
     return;
   }
+
+  errorMessage.value = "";
 
   if (
     !file.type.startsWith("image/")
@@ -229,10 +212,6 @@ function handleImageChange(event) {
 }
 
 function validateForm() {
-  if (!form.bookCode.trim()) {
-    return "Vui lòng nhập mã sách";
-  }
-
   if (!form.title.trim()) {
     return "Vui lòng nhập tên sách";
   }
@@ -245,14 +224,59 @@ function validateForm() {
     return "Vui lòng nhập thể loại";
   }
 
-  if (!form.publisher) {
-    return "Vui lòng chọn nhà xuất bản";
+  if (
+    !form.publisherName.trim()
+  ) {
+    return "Vui lòng nhập tên nhà xuất bản";
   }
 
   if (
-    Number(form.quantity) < 0
+    form.price === "" ||
+    form.price === null ||
+    form.price === undefined
   ) {
-    return "Số lượng sách không hợp lệ";
+    return "Vui lòng nhập đơn giá";
+  }
+
+  const price =
+    Number(form.price);
+
+  if (
+    !Number.isFinite(price) ||
+    price < 0
+  ) {
+    return "Đơn giá không hợp lệ";
+  }
+
+  if (
+    form.publishYear === "" ||
+    form.publishYear === null ||
+    form.publishYear === undefined
+  ) {
+    return "Vui lòng nhập năm xuất bản";
+  }
+
+  const publishYear =
+    Number(form.publishYear);
+
+  if (
+    !Number.isInteger(
+      publishYear,
+    ) ||
+    publishYear < 1000 ||
+    publishYear > currentYear
+  ) {
+    return `Năm xuất bản phải từ 1000 đến ${currentYear}`;
+  }
+
+  const quantity =
+    Number(form.quantity);
+
+  if (
+    !Number.isInteger(quantity) ||
+    quantity < 0
+  ) {
+    return "Số lượng sách phải là số nguyên không âm";
   }
 
   return "";
@@ -274,14 +298,8 @@ async function handleSubmit() {
   submitting.value = true;
 
   try {
-    const payload = new FormData();
-
-    payload.append(
-      "bookCode",
-      form.bookCode
-        .trim()
-        .toUpperCase(),
-    );
+    const payload =
+      new FormData();
 
     payload.append(
       "title",
@@ -299,18 +317,18 @@ async function handleSubmit() {
     );
 
     payload.append(
-      "publisher",
-      form.publisher,
+      "publisherName",
+      form.publisherName.trim(),
     );
 
     payload.append(
-      "isbn",
-      form.isbn.trim(),
+      "price",
+      String(form.price),
     );
 
     payload.append(
-      "publicationYear",
-      form.publicationYear || "",
+      "publishYear",
+      String(form.publishYear),
     );
 
     payload.append(
@@ -323,6 +341,10 @@ async function handleSubmit() {
       form.description.trim(),
     );
 
+    /*
+     * Chỉ gửi URL ảnh khi người dùng
+     * thực sự nhập một URL mới.
+     */
     if (form.image.trim()) {
       payload.append(
         "image",
@@ -330,6 +352,10 @@ async function handleSubmit() {
       );
     }
 
+    /*
+     * Tên field phải trùng với multer:
+     * bookUpload.single("imageFile")
+     */
     if (selectedImage.value) {
       payload.append(
         "imageFile",
@@ -343,10 +369,14 @@ async function handleSubmit() {
         payload,
       );
     } else {
-      await bookApi.create(payload);
+      await bookApi.create(
+        payload,
+      );
     }
 
-    router.push("/books");
+    await router.push(
+      "/books",
+    );
   } catch (error) {
     errorMessage.value =
       getErrorMessage(
@@ -364,9 +394,8 @@ function goBack() {
   router.push("/books");
 }
 
-onMounted(async () => {
-  await loadPublishers();
-  await loadBook();
+onMounted(() => {
+  loadBook();
 });
 
 onBeforeUnmount(() => {
@@ -387,7 +416,9 @@ onBeforeUnmount(() => {
           class="back-button"
           @click="goBack"
         >
-          <i class="bi bi-arrow-left" />
+          <i
+            class="bi bi-arrow-left"
+          />
           Quay lại
         </button>
 
@@ -430,25 +461,13 @@ onBeforeUnmount(() => {
 
         <div class="form-grid">
           <div>
-            <label>
-              Mã sách
-              <span>*</span>
-            </label>
-
-            <input
-              v-model="form.bookCode"
-              type="text"
-              placeholder="Ví dụ: BOOK001"
-            />
-          </div>
-
-          <div>
-            <label>
+            <label for="bookTitle">
               Tên sách
               <span>*</span>
             </label>
 
             <input
+              id="bookTitle"
               v-model="form.title"
               type="text"
               placeholder="Nhập tên sách"
@@ -456,12 +475,13 @@ onBeforeUnmount(() => {
           </div>
 
           <div>
-            <label>
+            <label for="bookAuthor">
               Tác giả
               <span>*</span>
             </label>
 
             <input
+              id="bookAuthor"
               v-model="form.author"
               type="text"
               placeholder="Nhập tên tác giả"
@@ -469,12 +489,13 @@ onBeforeUnmount(() => {
           </div>
 
           <div>
-            <label>
+            <label for="bookCategory">
               Thể loại
               <span>*</span>
             </label>
 
             <input
+              id="bookCategory"
               v-model="form.category"
               type="text"
               placeholder="Ví dụ: Công nghệ"
@@ -482,71 +503,93 @@ onBeforeUnmount(() => {
           </div>
 
           <div>
-            <label>
+            <label
+              for="publisherName"
+            >
               Nhà xuất bản
               <span>*</span>
             </label>
 
-            <select
-              v-model="form.publisher"
-              :disabled="loadingPublishers"
-            >
-              <option value="">
-                Chọn nhà xuất bản
-              </option>
-
-              <option
-                v-for="publisher in publishers"
-                :key="publisher._id"
-                :value="publisher._id"
-              >
-                {{
-                  publisher.publisherName ||
-                  publisher.name
-                }}
-              </option>
-            </select>
-          </div>
-
-          <div>
-            <label>ISBN</label>
-
             <input
-              v-model="form.isbn"
+              id="publisherName"
+              v-model="
+                form.publisherName
+              "
               type="text"
-              placeholder="Nhập ISBN"
+              placeholder="Nhập tên nhà xuất bản"
+              autocomplete="off"
             />
           </div>
 
           <div>
-            <label>Năm xuất bản</label>
+            <label for="bookPrice">
+              Đơn giá
+              <span>*</span>
+            </label>
 
             <input
-              v-model="form.publicationYear"
+              id="bookPrice"
+              v-model.number="
+                form.price
+              "
               type="number"
               min="0"
-              placeholder="2026"
+              step="1000"
+              placeholder="Ví dụ: 85000"
             />
           </div>
 
           <div>
-            <label>
+            <label
+              for="bookPublishYear"
+            >
+              Năm xuất bản
+              <span>*</span>
+            </label>
+
+            <input
+              id="bookPublishYear"
+              v-model.number="
+                form.publishYear
+              "
+              type="number"
+              min="1000"
+              :max="currentYear"
+              placeholder="Ví dụ: 2024"
+            />
+          </div>
+
+          <div>
+            <label
+              for="bookQuantity"
+            >
               Số lượng
               <span>*</span>
             </label>
 
             <input
-              v-model.number="form.quantity"
+              id="bookQuantity"
+              v-model.number="
+                form.quantity
+              "
               type="number"
               min="0"
+              step="1"
             />
           </div>
 
           <div class="full-width">
-            <label>Mô tả</label>
+            <label
+              for="bookDescription"
+            >
+              Mô tả
+            </label>
 
             <textarea
-              v-model="form.description"
+              id="bookDescription"
+              v-model="
+                form.description
+              "
               rows="6"
               placeholder="Nhập mô tả sách"
             />
@@ -554,7 +597,9 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <aside class="form-card image-card">
+      <aside
+        class="form-card image-card"
+      >
         <h2>Ảnh bìa sách</h2>
 
         <div class="image-preview">
@@ -568,14 +613,20 @@ onBeforeUnmount(() => {
             v-else
             class="image-placeholder"
           >
-            <i class="bi bi-book" />
+            <i
+              class="bi bi-book"
+            />
+
             <span>Chưa có ảnh</span>
           </div>
         </div>
 
-        <label>Đường dẫn ảnh</label>
+        <label for="bookImageUrl">
+          Đường dẫn ảnh
+        </label>
 
         <input
+          id="bookImageUrl"
           v-model="form.image"
           type="url"
           placeholder="https://..."
@@ -585,15 +636,20 @@ onBeforeUnmount(() => {
           hoặc
         </div>
 
-        <label class="upload-button">
+        <label
+          class="upload-button"
+        >
           <i class="bi bi-upload" />
+
           Chọn ảnh từ máy
 
           <input
             type="file"
             accept="image/*"
             hidden
-            @change="handleImageChange"
+            @change="
+              handleImageChange
+            "
           />
         </label>
 
@@ -610,7 +666,10 @@ onBeforeUnmount(() => {
           <button
             type="submit"
             class="save-button"
-            :disabled="submitting"
+            :disabled="
+              submitting ||
+              loading
+            "
           >
             {{
               submitting
@@ -637,7 +696,9 @@ onBeforeUnmount(() => {
   border: 1px solid #e5edf7;
   border-radius: 20px;
   background: #fff;
-  box-shadow: 0 10px 28px rgb(15 23 42 / 6%);
+  box-shadow:
+    0 10px 28px
+    rgb(15 23 42 / 6%);
 }
 
 .form-header {
@@ -688,7 +749,10 @@ onBeforeUnmount(() => {
 .form-grid {
   display: grid;
   grid-template-columns:
-    repeat(2, minmax(0, 1fr));
+    repeat(
+      2,
+      minmax(0, 1fr)
+    );
   gap: 18px;
 }
 
@@ -734,7 +798,17 @@ input:focus,
 select:focus,
 textarea:focus {
   border-color: #60a5fa;
-  box-shadow: 0 0 0 3px rgb(59 130 246 / 12%);
+  box-shadow:
+    0 0 0 3px
+    rgb(59 130 246 / 12%);
+}
+
+.field-note {
+  margin-top: 6px;
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .image-preview {
@@ -810,6 +884,12 @@ textarea:focus {
   border: 0;
   background: #2563eb;
   color: #fff;
+}
+
+.cancel-button:disabled,
+.save-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .loading-state {

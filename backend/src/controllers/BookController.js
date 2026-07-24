@@ -9,13 +9,67 @@ function buildBookPayload(req) {
     payload.image = `/uploads/books/${req.file.filename}`;
   }
 
-  if (payload.publicationYear === "") {
-    delete payload.publicationYear;
+  if (
+    payload.publishYear === undefined &&
+    payload.publicationYear !== undefined
+  ) {
+    payload.publishYear = payload.publicationYear;
+  }
+
+  delete payload.publicationYear;
+  delete payload.isbn;
+
+  if (
+    payload.publishYear !== undefined &&
+    String(payload.publishYear).trim() === ""
+  ) {
+    delete payload.publishYear;
+  }
+
+  if (payload.price !== undefined && String(payload.price).trim() === "") {
+    delete payload.price;
+  }
+
+  if (
+    payload.quantity !== undefined &&
+    String(payload.quantity).trim() === ""
+  ) {
+    delete payload.quantity;
+  }
+
+  /*
+   * Chuẩn hóa các trường văn bản.
+   */
+  if (payload.title !== undefined) {
+    payload.title = String(payload.title).trim();
+  }
+
+  if (payload.author !== undefined) {
+    payload.author = String(payload.author).trim();
+  }
+
+  if (payload.category !== undefined) {
+    payload.category = String(payload.category).trim();
+  }
+
+  if (payload.publisherName !== undefined) {
+    payload.publisherName = String(payload.publisherName).trim();
+  }
+
+  if (payload.description !== undefined) {
+    payload.description = String(payload.description).trim();
+  }
+
+  if (payload.image !== undefined) {
+    payload.image = String(payload.image).trim();
   }
 
   return payload;
 }
 
+// ==================================================
+// LẤY DANH SÁCH SÁCH
+// ==================================================
 async function getAllBooks(req, res) {
   try {
     const result = await BookService.getAllBooks(req.query);
@@ -35,6 +89,9 @@ async function getAllBooks(req, res) {
   }
 }
 
+// ==================================================
+// LẤY CHI TIẾT SÁCH
+// ==================================================
 async function getBookById(req, res) {
   try {
     const book = await BookService.getBookById(req.params.id);
@@ -45,6 +102,8 @@ async function getBookById(req, res) {
       data: book,
     });
   } catch (error) {
+    console.error("Get book detail error:", error);
+
     return res.status(404).json({
       success: false,
       message: error.message || "Không tìm thấy sách",
@@ -52,6 +111,9 @@ async function getBookById(req, res) {
   }
 }
 
+// ==================================================
+// THÊM SÁCH
+// ==================================================
 async function createBook(req, res) {
   try {
     const payload = buildBookPayload(req);
@@ -73,6 +135,9 @@ async function createBook(req, res) {
   }
 }
 
+// ==================================================
+// CẬP NHẬT SÁCH
+// ==================================================
 async function updateBook(req, res) {
   try {
     const payload = buildBookPayload(req);
@@ -94,6 +159,9 @@ async function updateBook(req, res) {
   }
 }
 
+// ==================================================
+// XÓA SÁCH
+// ==================================================
 async function deleteBook(req, res) {
   try {
     const book = await BookService.deleteBook(req.params.id);
