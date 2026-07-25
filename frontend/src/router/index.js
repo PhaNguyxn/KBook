@@ -29,6 +29,8 @@ import ReaderDetailView from "@/views/readers/ReaderDetailView.vue";
 ========================= */
 
 import BorrowListView from "@/views/borrows/BorrowListView.vue";
+import BorrowFormView from "@/views/borrows/BorrowFormView.vue";
+import BorrowDetailView from "@/views/borrows/BorrowDetailView.vue";
 import BorrowRequestView from "@/views/borrowRequests/BorrowRequestView.vue";
 
 /* =========================
@@ -172,6 +174,32 @@ const routes = [
         path: "borrow-requests",
         name: "borrow-requests",
         component: BorrowRequestView,
+      },
+
+      {
+        path: "borrows",
+        name: "borrow-list",
+        component: BorrowListView,
+        meta: {
+          title: "Danh sách phiếu mượn",
+        },
+      },
+      {
+        path: "borrows/create",
+        name: "borrow-create",
+        component: BorrowFormView,
+        meta: {
+          title: "Lập phiếu mượn",
+        },
+      },
+      {
+        path: "borrows/:id",
+        name: "borrow-detail",
+        component: BorrowDetailView,
+        props: true,
+        meta: {
+          title: "Chi tiết phiếu mượn",
+        },
       },
 
       /* =====================

@@ -42,17 +42,26 @@ const getBorrowById = async (req, res) => {
 // Tạo phiếu mượn
 const createBorrow = async (req, res) => {
   try {
-    const borrow = await BorrowService.createBorrow(req.body, req.user.id);
+    const employeeId =
+      req.user?._id || req.user?.id || req.employee?._id || req.employee?.id;
 
-    res.status(201).json({
+    console.log("Create borrow body:", JSON.stringify(req.body, null, 2));
+
+    console.log("Create borrow employee:", employeeId);
+
+    const result = await BorrowService.createBorrow(req.body, employeeId);
+
+    return res.status(201).json({
       success: true,
-      message: "Tạo phiếu mượn thành công",
-      data: borrow,
+      message: "Lập phiếu mượn thành công",
+      data: result,
     });
   } catch (error) {
-    res.status(400).json({
+    console.error("Create borrow error:", error);
+
+    return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Không thể lập phiếu mượn",
     });
   }
 };

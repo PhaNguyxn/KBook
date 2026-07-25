@@ -2,6 +2,13 @@ const mongoose = require("mongoose");
 
 const borrowSchema = new mongoose.Schema(
   {
+    borrowCode: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
+
     reader: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Reader",
@@ -16,7 +23,7 @@ const borrowSchema = new mongoose.Schema(
 
     borrowDate: {
       type: Date,
-      default: Date.now,
+      required: true,
     },
 
     dueDate: {
@@ -27,6 +34,18 @@ const borrowSchema = new mongoose.Schema(
     returnDate: {
       type: Date,
       default: null,
+    },
+
+    totalAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+
+    note: {
+      type: String,
+      trim: true,
+      default: "",
     },
 
     status: {

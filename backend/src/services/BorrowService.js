@@ -4,151 +4,222 @@ const Borrow = require("../models/Borrow");
 const BorrowDetail = require("../models/BorrowDetail");
 const Book = require("../models/Book");
 const Reader = require("../models/Reader");
+const generateCode = require("../utils/generateCode");
+
+const generateBorrowCode = async () => {
+  const lastBorrow = await Borrow.findOne({
+    borrowCode: /^PM\d+$/,
+  })
+    .sort({
+      borrowCode: -1,
+    })
+    .select("borrowCode")
+    .lean();
+
+  let nextNumber = 1;
+
+  if (lastBorrow?.borrowCode) {
+    const currentNumber = Number(lastBorrow.borrowCode.replace("PM", ""));
+
+    if (Number.isInteger(currentNumber)) {
+      nextNumber = currentNumber + 1;
+    }
+  }
+
+  return `PM${String(nextNumber).padStart(4, "0")}`;
+};
 
 // =========================
 // Tạo phiếu mượn
 // =========================
-const createBorrow = async (data, employeeId) => {
-  const { reader, dueDate, books } = data;
+const createBorrow = async (data = {}, employeeId) => {
+  const readerId = data.readerId || data.reader;
 
-  if (!mongoose.isValidObjectId(reader)) {
-    throw new Error("Độc giả không hợp lệ");
+  const rawItems = Array.isArray(data.items)
+    ? data.items
+    : Array.isArray(data.books)
+      ? data.books
+      : [];
+
+  if (!readerId) {
+    throw new Error("Vui lòng chọn độc giả");
   }
 
-  const readerExist = await Reader.findById(reader);
-
-  if (!readerExist) {
-    throw new Error("Không tìm thấy độc giả");
+  if (!employeeId) {
+    throw new Error("Không xác định được nhân viên lập phiếu");
   }
 
-  if (!readerExist.status) {
-    throw new Error("Độc giả đã bị khóa");
-  }
-
-  if (!dueDate) {
-    throw new Error("Vui lòng chọn hạn trả sách");
-  }
-
-  const parsedDueDate = new Date(dueDate);
-  const today = new Date();
-
-  today.setHours(0, 0, 0, 0);
-  parsedDueDate.setHours(0, 0, 0, 0);
-
-  if (Number.isNaN(parsedDueDate.getTime()) || parsedDueDate <= today) {
-    throw new Error("Hạn trả phải lớn hơn ngày hiện tại");
-  }
-
-  if (!Array.isArray(books) || books.length === 0) {
+  if (rawItems.length === 0) {
     throw new Error("Danh sách sách không được để trống");
   }
 
-  const normalizedBooks = books.map((item) => ({
-    book: item.book,
-    quantity: Number(item.quantity),
-  }));
-
-  for (const item of normalizedBooks) {
-    if (!mongoose.isValidObjectId(item.book)) {
-      throw new Error("Mã sách không hợp lệ");
-    }
-
-    if (!Number.isInteger(item.quantity) || item.quantity < 1) {
-      throw new Error("Số lượng mượn phải là số nguyên lớn hơn 0");
-    }
+  if (!data.borrowDate) {
+    throw new Error("Vui lòng chọn ngày mượn");
   }
 
-  // Không cho phép cùng một sách xuất hiện nhiều lần
-  const bookIds = normalizedBooks.map((item) => item.book.toString());
-
-  const uniqueBookIds = new Set(bookIds);
-
-  if (uniqueBookIds.size !== bookIds.length) {
-    throw new Error("Một quyển sách không được xuất hiện nhiều lần");
+  if (!data.dueDate) {
+    throw new Error("Vui lòng chọn hạn trả");
   }
 
-  // Kiểm tra toàn bộ sách trước khi tạo phiếu
-  const existingBooks = await Book.find({
+  const borrowDate = new Date(data.borrowDate);
+
+  const dueDate = new Date(data.dueDate);
+
+  if (Number.isNaN(borrowDate.getTime()) || Number.isNaN(dueDate.getTime())) {
+    throw new Error("Ngày mượn hoặc hạn trả không hợp lệ");
+  }
+
+  if (dueDate < borrowDate) {
+    throw new Error("Hạn trả không được nhỏ hơn ngày mượn");
+  }
+
+  const reader = await Reader.findById(readerId);
+
+  if (!reader) {
+    throw new Error("Không tìm thấy độc giả");
+  }
+
+  if (reader.status === false) {
+    throw new Error("Độc giả đã bị khóa hoặc không còn hoạt động");
+  }
+
+  /*
+   * Gộp các sách bị chọn trùng nhau.
+   */
+  const itemMap = new Map();
+
+  for (const item of rawItems) {
+    const bookId = item.bookId || item.book || item._id;
+
+    const quantity = Number(item.quantity);
+
+    if (!bookId) {
+      throw new Error("Thông tin sách không hợp lệ");
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      throw new Error("Số lượng sách mượn không hợp lệ");
+    }
+
+    const key = String(bookId);
+
+    itemMap.set(key, (itemMap.get(key) || 0) + quantity);
+  }
+
+  const normalizedItems = Array.from(itemMap.entries()).map(
+    ([bookId, quantity]) => ({
+      bookId,
+      quantity,
+    }),
+  );
+
+  const bookIds = normalizedItems.map((item) => item.bookId);
+
+  const books = await Book.find({
     _id: {
       $in: bookIds,
     },
   });
 
-  if (existingBooks.length !== normalizedBooks.length) {
+  if (books.length !== bookIds.length) {
     throw new Error("Có sách không tồn tại trong hệ thống");
   }
 
-  const bookMap = new Map(
-    existingBooks.map((book) => [book._id.toString(), book]),
-  );
+  const bookMap = new Map(books.map((book) => [String(book._id), book]));
 
-  for (const item of normalizedBooks) {
-    const book = bookMap.get(item.book.toString());
+  const detailsData = [];
+  let totalAmount = 0;
 
-    if (!book.status) {
-      throw new Error(`Sách "${book.title}" đã ngừng hoạt động`);
+  for (const item of normalizedItems) {
+    const book = bookMap.get(String(item.bookId));
+
+    const available = Number(book.available ?? book.quantity ?? 0);
+
+    if (item.quantity > available) {
+      throw new Error(`"${book.title}" chỉ còn ${available} quyển`);
     }
 
-    if (book.available < item.quantity) {
-      throw new Error(`Sách "${book.title}" chỉ còn ${book.available} quyển`);
-    }
+    const unitPrice = Number(book.price) || 0;
+
+    const subtotal = unitPrice * item.quantity;
+
+    totalAmount += subtotal;
+
+    detailsData.push({
+      book: book._id,
+      quantity: item.quantity,
+      unitPrice,
+      subtotal,
+    });
   }
 
-  let borrow = null;
-  const decreasedBooks = [];
+  const borrowCode = await generateBorrowCode();
+
+  let createdBorrow = null;
+  const decreasedItems = [];
 
   try {
-    borrow = await Borrow.create({
-      reader,
+    /*
+     * Tạo thông tin chung của phiếu.
+     */
+    createdBorrow = await Borrow.create({
+      borrowCode,
+      reader: readerId,
       employee: employeeId,
-      dueDate: parsedDueDate,
+      borrowDate,
+      dueDate,
+      totalAmount,
+      note: String(data.note || "").trim(),
+      status: "borrowing",
     });
 
     /*
-     * Giảm số lượng bằng điều kiện available >= quantity
-     * để hạn chế trường hợp hai nhân viên mượn đồng thời.
+     * Tạo chi tiết sách của phiếu.
      */
-    for (const item of normalizedBooks) {
-      const result = await Book.updateOne(
+    await BorrowDetail.insertMany(
+      detailsData.map((detail) => ({
+        borrow: createdBorrow._id,
+        book: detail.book,
+        quantity: detail.quantity,
+        unitPrice: detail.unitPrice,
+        subtotal: detail.subtotal,
+      })),
+    );
+
+    /*
+     * Trừ số lượng sách khả dụng.
+     */
+    for (const detail of detailsData) {
+      const updateResult = await Book.updateOne(
         {
-          _id: item.book,
-          status: true,
+          _id: detail.book,
           available: {
-            $gte: item.quantity,
+            $gte: detail.quantity,
           },
         },
         {
           $inc: {
-            available: -item.quantity,
+            available: -detail.quantity,
           },
         },
       );
 
-      if (result.modifiedCount !== 1) {
-        const book = bookMap.get(item.book.toString());
-
-        throw new Error(
-          `Sách "${book?.title || "không xác định"}" không còn đủ số lượng`,
-        );
+      if (updateResult.modifiedCount !== 1) {
+        throw new Error("Số lượng sách đã thay đổi, vui lòng tải lại dữ liệu");
       }
 
-      decreasedBooks.push(item);
+      decreasedItems.push({
+        book: detail.book,
+        quantity: detail.quantity,
+      });
     }
 
-    const details = normalizedBooks.map((item) => ({
-      borrow: borrow._id,
-      book: item.book,
-      quantity: item.quantity,
-    }));
-
-    await BorrowDetail.insertMany(details);
-
-    return await Borrow.findById(borrow._id)
-      .populate("reader")
-      .populate("employee");
+    return await getBorrowById(createdBorrow._id);
   } catch (error) {
-    // Hoàn lại số lượng sách nếu quá trình tạo phiếu bị lỗi
-    for (const item of decreasedBooks) {
+    /*
+     * Hoàn lại số lượng đã trừ khi có lỗi.
+     */
+    for (const item of decreasedItems) {
       await Book.updateOne(
         {
           _id: item.book,
@@ -161,12 +232,14 @@ const createBorrow = async (data, employeeId) => {
       );
     }
 
-    if (borrow) {
+    if (createdBorrow?._id) {
       await BorrowDetail.deleteMany({
-        borrow: borrow._id,
+        borrow: createdBorrow._id,
       });
 
-      await Borrow.findByIdAndDelete(borrow._id);
+      await Borrow.deleteOne({
+        _id: createdBorrow._id,
+      });
     }
 
     throw error;
@@ -269,26 +342,28 @@ const getAllBorrows = async (query) => {
 // Chi tiết phiếu mượn
 // =========================
 const getBorrowById = async (id) => {
-  if (!mongoose.isValidObjectId(id)) {
-    throw new Error("Mã phiếu mượn không hợp lệ");
-  }
-
   const borrow = await Borrow.findById(id)
-    .populate("reader")
-    .populate("employee", "-password");
+    .populate("reader", "readerCode firstName lastName phone address status")
+    .populate("employee", "employeeCode fullName firstName lastName");
 
   if (!borrow) {
     throw new Error("Không tìm thấy phiếu mượn");
   }
 
   const details = await BorrowDetail.find({
-    borrow: id,
-  }).populate({
-    path: "book",
-    populate: {
-      path: "publisher",
-    },
-  });
+    borrow: borrow._id,
+  })
+    .populate({
+      path: "book",
+      select: "bookCode title author category image price publisher",
+      populate: {
+        path: "publisher",
+        select: "publisherName name",
+      },
+    })
+    .sort({
+      createdAt: 1,
+    });
 
   return {
     borrow,
