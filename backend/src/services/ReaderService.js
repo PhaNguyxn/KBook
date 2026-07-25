@@ -345,11 +345,31 @@ const updateReader = async (id, data = {}) => {
 };
 
 const deleteReader = async (id) => {
-  const reader = await Reader.findByIdAndDelete(id);
+  const reader = await Reader.findById(id);
 
   if (!reader) {
     throw new Error("Không tìm thấy độc giả");
   }
+
+  const readerField = Borrow.schema.path("reader")
+    ? "reader"
+    : Borrow.schema.path("readerId")
+      ? "readerId"
+      : null;
+
+  if (readerField) {
+    const hasBorrowHistory = await Borrow.exists({
+      [readerField]: id,
+    });
+
+    if (hasBorrowHistory) {
+      throw new Error("Không thể xóa độc giả đã có lịch sử mượn sách");
+    }
+  }
+
+  await Reader.deleteOne({
+    _id: id,
+  });
 
   return reader;
 };

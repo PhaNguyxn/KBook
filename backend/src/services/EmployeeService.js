@@ -2,44 +2,87 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 
 const Employee = require("../models/Employee");
+const Borrow = require("../models/Borrow");
 
-function normalizeBoolean(value) {
-  if (typeof value === "boolean") {
-    return value;
-  }
+/* =========================================
+   HÀM HỖ TRỢ
+========================================= */
 
-  if (value === "true") {
-    return true;
-  }
-
-  if (value === "false") {
-    return false;
-  }
-
-  return value;
+function normalizeEmail(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
-// =========================
-// Danh sách nhân viên
-// =========================
+function normalizePhone(value) {
+  return String(value || "")
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
+
+function validateEmail(email) {
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  return emailPattern.test(email);
+}
+
+function validatePhone(phone) {
+  return /^[0-9]{9,11}$/.test(phone);
+}
+
+/* =========================================
+   TỰ SINH MÃ NHÂN VIÊN
+========================================= */
+
+async function generateEmployeeCode() {
+  /*
+   * Lấy tất cả mã có định dạng NV + số.
+   * Cách này vẫn hoạt động đúng khi dữ liệu
+   * bị xóa hoặc mã không được tạo liên tục.
+   */
+  const employees = await Employee.find({
+    employeeCode: /^NV\d+$/i,
+  })
+    .select("employeeCode")
+    .lean();
+
+  let largestNumber = 0;
+
+  for (const employee of employees) {
+    const code = String(employee.employeeCode || "").toUpperCase();
+
+    const number = Number(code.replace(/^NV/, ""));
+
+    if (Number.isInteger(number) && number > largestNumber) {
+      largestNumber = number;
+    }
+  }
+
+  const nextNumber = largestNumber + 1;
+
+  return `NV${String(nextNumber).padStart(3, "0")}`;
+}
+
+/* =========================================
+   DANH SÁCH NHÂN VIÊN
+========================================= */
+
 const getAllEmployees = async (query = {}) => {
-  let {
-    page = 1,
-    limit = 10,
-    keyword = "",
-    role = "",
-    status = "",
-    sort = "",
-  } = query;
+  let { page = 1, limit = 10, keyword = "", role = "", sort = "" } = query;
 
   page = Math.max(Number(page) || 1, 1);
-  limit = Math.max(Number(limit) || 10, 1);
+
+  limit = Math.min(Math.max(Number(limit) || 10, 1), 100);
 
   const filter = {};
 
-  if (keyword.trim()) {
-    const searchKeyword = keyword.trim();
+  const searchKeyword = String(keyword || "").trim();
 
+  if (searchKeyword) {
     filter.$or = [
       {
         employeeCode: {
@@ -72,10 +115,6 @@ const getAllEmployees = async (query = {}) => {
     filter.role = role;
   }
 
-  if (status !== "") {
-    filter.status = status === "true";
-  }
-
   let sortOption = {
     createdAt: -1,
   };
@@ -83,44 +122,46 @@ const getAllEmployees = async (query = {}) => {
   if (sort === "name") {
     sortOption = {
       fullName: 1,
+      employeeCode: 1,
     };
-  }
-
-  if (sort === "employeeCode") {
+  } else if (sort === "employeeCode") {
     sortOption = {
       employeeCode: 1,
     };
-  }
-
-  if (sort === "role") {
+  } else if (sort === "role") {
     sortOption = {
       role: 1,
       fullName: 1,
     };
   }
 
-  const total = await Employee.countDocuments(filter);
+  const [total, employees] = await Promise.all([
+    Employee.countDocuments(filter),
 
-  const employees = await Employee.find(filter)
-    .select("-password")
-    .sort(sortOption)
-    .skip((page - 1) * limit)
-    .limit(limit);
+    Employee.find(filter)
+      .select("-password")
+      .sort(sortOption)
+      .skip((page - 1) * limit)
+      .limit(limit),
+  ]);
 
   return {
     employees,
+
     pagination: {
       total,
       page,
       limit,
+
       totalPages: Math.ceil(total / limit),
     },
   };
 };
 
-// =========================
-// Chi tiết nhân viên
-// =========================
+/* =========================================
+   CHI TIẾT NHÂN VIÊN
+========================================= */
+
 const getEmployeeById = async (id) => {
   if (!mongoose.isValidObjectId(id)) {
     throw new Error("Mã nhân viên không hợp lệ");
@@ -135,70 +176,72 @@ const getEmployeeById = async (id) => {
   return employee;
 };
 
-// =========================
-// Thêm nhân viên
-// =========================
-const createEmployee = async (data) => {
-  const {
-    employeeCode,
-    fullName,
-    email,
-    password,
-    phone,
-    birthday,
-    gender,
-    address,
-    role,
-  } = data;
+/* =========================================
+   THÊM NHÂN VIÊN
+========================================= */
 
-  if (
-    !employeeCode?.trim() ||
-    !fullName?.trim() ||
-    !email?.trim() ||
-    !password ||
-    !phone?.trim()
-  ) {
+const createEmployee = async (data = {}) => {
+  const fullName = normalizeText(data.fullName);
+
+  const email = normalizeEmail(data.email);
+
+  const phone = normalizePhone(data.phone);
+
+  const password = String(data.password || "");
+
+  const birthday = data.birthday || null;
+
+  const gender = data.gender || "Nam";
+
+  const address = normalizeText(data.address);
+
+  const role = data.role || "staff";
+
+  if (!fullName || !email || !phone || !password) {
     throw new Error("Vui lòng nhập đầy đủ thông tin bắt buộc");
   }
 
-  if (!["admin", "staff"].includes(role)) {
-    throw new Error("Vai trò nhân viên không hợp lệ");
+  if (!validateEmail(email)) {
+    throw new Error("Email không hợp lệ");
   }
 
-  if (gender && !["Nam", "Nữ", "Khác"].includes(gender)) {
-    throw new Error("Giới tính không hợp lệ");
+  if (!validatePhone(phone)) {
+    throw new Error("Số điện thoại phải gồm từ 9 đến 11 chữ số");
   }
 
   if (password.length < 6) {
     throw new Error("Mật khẩu phải có ít nhất 6 ký tự");
   }
 
-  const normalizedEmployeeCode = employeeCode.trim().toUpperCase();
+  if (!["Nam", "Nữ", "Khác"].includes(gender)) {
+    throw new Error("Giới tính không hợp lệ");
+  }
 
-  const normalizedEmail = email.trim().toLowerCase();
+  if (!["admin", "staff"].includes(role)) {
+    throw new Error("Vai trò nhân viên không hợp lệ");
+  }
 
-  const normalizedPhone = phone.replace(/\s/g, "");
+  if (birthday) {
+    const birthdayDate = new Date(birthday);
+
+    if (Number.isNaN(birthdayDate.getTime()) || birthdayDate >= new Date()) {
+      throw new Error("Ngày sinh không hợp lệ");
+    }
+  }
 
   const existedEmployee = await Employee.findOne({
     $or: [
       {
-        employeeCode: normalizedEmployeeCode,
+        email,
       },
       {
-        email: normalizedEmail,
-      },
-      {
-        phone: normalizedPhone,
+        phone,
       },
     ],
   });
 
   if (existedEmployee) {
-    if (existedEmployee.employeeCode === normalizedEmployeeCode) {
-      throw new Error("Mã nhân viên đã tồn tại");
-    }
-
-    if (existedEmployee.email === normalizedEmail) {
+    if (existedEmployee.email === email) {
       throw new Error("Email đã tồn tại");
     }
 
@@ -207,26 +250,70 @@ const createEmployee = async (data) => {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  const employee = await Employee.create({
-    employeeCode: normalizedEmployeeCode,
-    fullName: fullName.trim(),
-    email: normalizedEmail,
-    password: hashedPassword,
-    phone: normalizedPhone,
-    birthday: birthday || null,
-    gender: gender || "Nam",
-    address: address?.trim() || "",
-    role,
-    status: true,
-  });
+  /*
+   * Thử lại tối đa 5 lần trong trường hợp
+   * hai yêu cầu tạo nhân viên chạy cùng lúc
+   * và sinh trùng employeeCode.
+   */
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      const employeeCode = await generateEmployeeCode();
 
-  return await Employee.findById(employee._id).select("-password");
+      const employee = await Employee.create({
+        employeeCode,
+
+        fullName,
+        email,
+        phone,
+        birthday,
+        gender,
+        address,
+        role,
+        password: hashedPassword,
+
+        /*
+         * Giữ status=true để tương thích
+         * dữ liệu cũ, nhưng giao diện mới
+         * không còn chức năng khóa.
+         */
+        status: true,
+      });
+
+      return await Employee.findById(employee._id).select("-password");
+    } catch (error) {
+      const duplicatedEmployeeCode =
+        error?.code === 11000 &&
+        Boolean(
+          error?.keyPattern?.employeeCode || error?.keyValue?.employeeCode,
+        );
+
+      if (!duplicatedEmployeeCode) {
+        /*
+         * Xử lý trường hợp index MongoDB
+         * phát hiện email hoặc điện thoại
+         * bị trùng.
+         */
+        if (error?.code === 11000 && error?.keyPattern?.email) {
+          throw new Error("Email đã tồn tại");
+        }
+
+        if (error?.code === 11000 && error?.keyPattern?.phone) {
+          throw new Error("Số điện thoại đã tồn tại");
+        }
+
+        throw error;
+      }
+    }
+  }
+
+  throw new Error("Không thể tạo mã nhân viên, vui lòng thử lại");
 };
 
-// =========================
-// Cập nhật nhân viên
-// =========================
-const updateEmployee = async (id, data) => {
+/* =========================================
+   CẬP NHẬT NHÂN VIÊN
+========================================= */
+
+const updateEmployee = async (id, data = {}) => {
   if (!mongoose.isValidObjectId(id)) {
     throw new Error("Mã nhân viên không hợp lệ");
   }
@@ -237,28 +324,32 @@ const updateEmployee = async (id, data) => {
     throw new Error("Không tìm thấy nhân viên");
   }
 
-  if (data.employeeCode) {
-    const normalizedEmployeeCode = data.employeeCode.trim().toUpperCase();
+  /*
+   * Không xử lý data.employeeCode.
+   * Mã nhân viên được sinh tự động và
+   * không được phép thay đổi.
+   */
 
-    const employeeCodeExisted = await Employee.findOne({
-      employeeCode: normalizedEmployeeCode,
-      _id: {
-        $ne: id,
-      },
-    });
+  if (data.fullName !== undefined) {
+    const fullName = normalizeText(data.fullName);
 
-    if (employeeCodeExisted) {
-      throw new Error("Mã nhân viên đã tồn tại");
+    if (!fullName) {
+      throw new Error("Họ và tên không được để trống");
     }
 
-    employee.employeeCode = normalizedEmployeeCode;
+    employee.fullName = fullName;
   }
 
-  if (data.email) {
-    const normalizedEmail = data.email.trim().toLowerCase();
+  if (data.email !== undefined) {
+    const email = normalizeEmail(data.email);
+
+    if (!validateEmail(email)) {
+      throw new Error("Email không hợp lệ");
+    }
 
     const emailExisted = await Employee.findOne({
-      email: normalizedEmail,
+      email,
+
       _id: {
         $ne: id,
       },
@@ -268,14 +359,19 @@ const updateEmployee = async (id, data) => {
       throw new Error("Email đã tồn tại");
     }
 
-    employee.email = normalizedEmail;
+    employee.email = email;
   }
 
-  if (data.phone) {
-    const normalizedPhone = data.phone.replace(/\s/g, "");
+  if (data.phone !== undefined) {
+    const phone = normalizePhone(data.phone);
+
+    if (!validatePhone(phone)) {
+      throw new Error("Số điện thoại phải gồm từ 9 đến 11 chữ số");
+    }
 
     const phoneExisted = await Employee.findOne({
-      phone: normalizedPhone,
+      phone,
+
       _id: {
         $ne: id,
       },
@@ -285,15 +381,21 @@ const updateEmployee = async (id, data) => {
       throw new Error("Số điện thoại đã tồn tại");
     }
 
-    employee.phone = normalizedPhone;
-  }
-
-  if (data.fullName !== undefined) {
-    employee.fullName = data.fullName.trim();
+    employee.phone = phone;
   }
 
   if (data.birthday !== undefined) {
-    employee.birthday = data.birthday || null;
+    if (!data.birthday) {
+      employee.birthday = null;
+    } else {
+      const birthday = new Date(data.birthday);
+
+      if (Number.isNaN(birthday.getTime()) || birthday >= new Date()) {
+        throw new Error("Ngày sinh không hợp lệ");
+      }
+
+      employee.birthday = birthday;
+    }
   }
 
   if (data.gender !== undefined) {
@@ -305,7 +407,7 @@ const updateEmployee = async (id, data) => {
   }
 
   if (data.address !== undefined) {
-    employee.address = data.address.trim();
+    employee.address = normalizeText(data.address);
   }
 
   if (data.role !== undefined) {
@@ -314,66 +416,57 @@ const updateEmployee = async (id, data) => {
     }
 
     /*
-     * Không cho hạ quyền admin cuối cùng.
+     * Không cho hạ quyền quản trị viên
+     * cuối cùng trong hệ thống.
      */
     if (employee.role === "admin" && data.role === "staff") {
-      const activeAdminCount = await Employee.countDocuments({
+      const adminCount = await Employee.countDocuments({
         role: "admin",
-        status: true,
+
+        status: {
+          $ne: false,
+        },
       });
 
-      if (activeAdminCount <= 1) {
-        throw new Error("Không thể hạ quyền admin cuối cùng");
+      if (adminCount <= 1) {
+        throw new Error("Không thể hạ quyền quản trị viên cuối cùng");
       }
     }
 
     employee.role = data.role;
   }
 
-  if (data.status !== undefined) {
-    const normalizedStatus = normalizeBoolean(data.status);
-
-    if (typeof normalizedStatus !== "boolean") {
-      throw new Error("Trạng thái nhân viên không hợp lệ");
-    }
-
-    if (
-      employee.role === "admin" &&
-      employee.status === true &&
-      normalizedStatus === false
-    ) {
-      const activeAdminCount = await Employee.countDocuments({
-        role: "admin",
-        status: true,
-      });
-
-      if (activeAdminCount <= 1) {
-        throw new Error("Không thể khóa admin cuối cùng");
-      }
-    }
-
-    employee.status = normalizedStatus;
-  }
+  /*
+   * Không xử lý data.status vì hệ thống
+   * đã chuyển từ khóa/kích hoạt sang xóa.
+   */
 
   if (data.password) {
-    if (data.password.length < 6) {
+    const password = String(data.password);
+
+    if (password.length < 6) {
       throw new Error("Mật khẩu phải có ít nhất 6 ký tự");
     }
 
-    employee.password = await bcrypt.hash(data.password, 10);
+    employee.password = await bcrypt.hash(password, 10);
   }
 
   await employee.save();
 
-  return await Employee.findById(id).select("-password");
+  return await Employee.findById(employee._id).select("-password");
 };
 
-// =========================
-// Khóa nhân viên
-// =========================
-const deleteEmployee = async (id) => {
+/* =========================================
+   XÓA NHÂN VIÊN
+========================================= */
+
+const deleteEmployee = async (id, currentEmployeeId) => {
   if (!mongoose.isValidObjectId(id)) {
     throw new Error("Mã nhân viên không hợp lệ");
+  }
+
+  if (currentEmployeeId && String(id) === String(currentEmployeeId)) {
+    throw new Error("Bạn không thể tự xóa tài khoản đang đăng nhập");
   }
 
   const employee = await Employee.findById(id);
@@ -382,26 +475,53 @@ const deleteEmployee = async (id) => {
     throw new Error("Không tìm thấy nhân viên");
   }
 
-  if (!employee.status) {
-    throw new Error("Nhân viên đã bị khóa");
-  }
-
+  /*
+   * Không cho xóa quản trị viên cuối cùng.
+   */
   if (employee.role === "admin") {
-    const activeAdminCount = await Employee.countDocuments({
+    const adminCount = await Employee.countDocuments({
       role: "admin",
-      status: true,
+
+      status: {
+        $ne: false,
+      },
     });
 
-    if (activeAdminCount <= 1) {
-      throw new Error("Không thể khóa admin cuối cùng");
+    if (adminCount <= 1) {
+      throw new Error("Không thể xóa quản trị viên cuối cùng");
     }
   }
 
-  employee.status = false;
+  /*
+   * Không cho xóa nhân viên đã lập phiếu
+   * mượn, vì nếu xóa thì populate employee
+   * trong phiếu cũ sẽ trả về null.
+   */
+  const employeeField = Borrow.schema.path("employee")
+    ? "employee"
+    : Borrow.schema.path("employeeId")
+      ? "employeeId"
+      : null;
 
-  await employee.save();
+  if (employeeField) {
+    const hasBorrowHistory = await Borrow.exists({
+      [employeeField]: id,
+    });
 
-  return await Employee.findById(id).select("-password");
+    if (hasBorrowHistory) {
+      throw new Error("Không thể xóa nhân viên đã có lịch sử lập phiếu mượn");
+    }
+  }
+
+  await Employee.deleteOne({
+    _id: id,
+  });
+
+  return {
+    _id: employee._id,
+    employeeCode: employee.employeeCode,
+    fullName: employee.fullName,
+  };
 };
 
 module.exports = {

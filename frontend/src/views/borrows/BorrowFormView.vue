@@ -1214,19 +1214,6 @@ onMounted(() => {
                     }}
                   </span>
 
-                  <strong>
-                    {{
-                      formatCurrency(
-                        getBookPrice(
-                          item.book,
-                        ) *
-                          Number(
-                            item.quantity ||
-                              0,
-                          ),
-                      )
-                    }}
-                  </strong>
                 </div>
               </div>
 

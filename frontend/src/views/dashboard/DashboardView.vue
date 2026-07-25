@@ -10,6 +10,10 @@ import { RouterLink } from "vue-router";
 import { dashboardApi } from "@/api/dashboardApi";
 import { getErrorMessage } from "@/utils/error";
 
+/* =========================================
+   STATE
+========================================= */
+
 const loading = ref(false);
 const errorMessage = ref("");
 
@@ -22,44 +26,53 @@ const dashboard = ref({
 
 const recentTransactions = ref([]);
 
-/*
- * Danh sách các thẻ thống kê.
- */
+/* =========================================
+   THẺ THỐNG KÊ
+========================================= */
+
 const statistics = computed(() => [
   {
     label: "Tổng số sách",
-    value: dashboard.value.totalBooks,
-    note: "Sách hiện có trong thư viện",
+    value:
+      dashboard.value.totalBooks,
+    note:
+      "Sách hiện có trong thư viện",
     icon: "bi-book-half",
     className: "card-blue",
   },
   {
     label: "Đang mượn",
-    value: dashboard.value.totalBorrowing,
-    note: "Phiếu mượn đang được xử lý",
+    value:
+      dashboard.value.totalBorrowing,
+    note:
+      "Phiếu mượn đang được xử lý",
     icon: "bi-journal-arrow-up",
     className: "card-orange",
   },
   {
     label: "Đã trả",
-    value: dashboard.value.totalReturned,
-    note: "Phiếu mượn đã hoàn thành",
+    value:
+      dashboard.value.totalReturned,
+    note:
+      "Phiếu mượn đã hoàn thành",
     icon: "bi-check2-circle",
     className: "card-green",
   },
   {
     label: "Độc giả",
-    value: dashboard.value.totalReaders,
-    note: "Độc giả đang hoạt động",
+    value:
+      dashboard.value.totalReaders,
+    note:
+      "Độc giả đang hoạt động",
     icon: "bi-people-fill",
     className: "card-purple",
   },
 ]);
 
-/*
- * Định dạng ngày giờ ngay trong component để tránh lỗi
- * thiếu export từ file utils/date.js.
- */
+/* =========================================
+   ĐỊNH DẠNG NGÀY GIỜ
+========================================= */
+
 function formatDateTime(value) {
   if (!value) {
     return "—";
@@ -67,35 +80,47 @@ function formatDateTime(value) {
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
     return "—";
   }
 
-  return new Intl.DateTimeFormat("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  return new Intl.DateTimeFormat(
+    "vi-VN",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  ).format(date);
 }
 
-/*
- * Lấy mã phiếu mượn.
- * Hỗ trợ nhiều tên trường khác nhau.
- */
-function getTransactionCode(transaction) {
-  const code =
-    transaction.borrowCode ||
-    transaction.code ||
-    transaction.borrowId;
+/* =========================================
+   THÔNG TIN GIAO DỊCH
+========================================= */
 
-  if (code) {
-    return code;
+function getTransactionCode(
+  transaction,
+) {
+  const code =
+    transaction?.borrowCode ||
+    transaction?.code ||
+    transaction?.borrowId;
+
+  if (
+    typeof code === "string" &&
+    code.trim()
+  ) {
+    return code.trim();
   }
 
   const shortId = String(
-    transaction._id || "",
+    transaction?._id || "",
   )
     .slice(-6)
     .toUpperCase();
@@ -105,69 +130,188 @@ function getTransactionCode(transaction) {
     : "—";
 }
 
-/*
- * Lấy thông tin độc giả.
- */
+/* =========================================
+   THÔNG TIN ĐỘC GIẢ
+========================================= */
+
 function getReader(transaction) {
   return (
-    transaction.reader ||
-    transaction.readerId ||
-    {}
+    transaction?.reader ||
+    transaction?.readerId ||
+    transaction?.readerSnapshot ||
+    null
   );
 }
 
 function getReaderName(transaction) {
-  const reader = getReader(transaction);
+  const reader =
+    getReader(transaction);
+
+  /*
+   * Ưu tiên trường fullName nếu backend
+   * đã chuẩn hóa dữ liệu.
+   */
+  const fullName = String(
+    reader?.fullName ||
+      reader?.name ||
+      "",
+  ).trim();
+
+  if (fullName) {
+    return fullName;
+  }
+
+  /*
+   * Model Reader hiện tại lưu tên trong
+   * lastName và firstName.
+   */
+  const lastName = String(
+    reader?.lastName || "",
+  ).trim();
+
+  const firstName = String(
+    reader?.firstName || "",
+  ).trim();
+
+  const combinedName =
+    `${lastName} ${firstName}`.trim();
+
+  if (combinedName) {
+    return combinedName;
+  }
+
+  /*
+   * Hỗ trợ thông tin snapshot được lưu
+   * trực tiếp trong phiếu mượn.
+   */
+  const snapshotName = String(
+    transaction?.readerName ||
+      transaction?.readerFullName ||
+      transaction?.readerSnapshot
+        ?.fullName ||
+      "",
+  ).trim();
 
   return (
-    reader.fullName ||
-    reader.name ||
-    transaction.readerName ||
+    snapshotName ||
     "Không xác định"
   );
 }
 
 function getReaderCode(transaction) {
-  const reader = getReader(transaction);
+  const reader =
+    getReader(transaction);
 
   return (
-    reader.readerCode ||
-    reader.code ||
-    transaction.readerCode ||
-    "—"
+    reader?.readerCode ||
+    reader?.code ||
+    transaction?.readerCode ||
+    transaction?.readerSnapshot
+      ?.readerCode ||
+    "Chưa có mã"
   );
 }
 
-/*
- * Lấy thông tin nhân viên.
- */
+function getReaderInitials(
+  transaction,
+) {
+  const name =
+    getReaderName(transaction);
+
+  if (
+    !name ||
+    name === "Không xác định"
+  ) {
+    return "ĐG";
+  }
+
+  const words = name
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length === 1) {
+    return words[0]
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  return `${
+    words[0].charAt(0)
+  }${
+    words[
+      words.length - 1
+    ].charAt(0)
+  }`.toUpperCase();
+}
+
+/* =========================================
+   THÔNG TIN NHÂN VIÊN
+========================================= */
+
 function getEmployee(transaction) {
   return (
-    transaction.employee ||
-    transaction.employeeId ||
-    {}
+    transaction?.employee ||
+    transaction?.employeeId ||
+    transaction?.employeeSnapshot ||
+    null
   );
 }
 
-function getEmployeeName(transaction) {
-  const employee = getEmployee(transaction);
+function getEmployeeName(
+  transaction,
+) {
+  const employee =
+    getEmployee(transaction);
+
+  const fullName = String(
+    employee?.fullName ||
+      employee?.name ||
+      "",
+  ).trim();
+
+  if (fullName) {
+    return fullName;
+  }
+
+  const lastName = String(
+    employee?.lastName || "",
+  ).trim();
+
+  const firstName = String(
+    employee?.firstName || "",
+  ).trim();
+
+  const combinedName =
+    `${lastName} ${firstName}`.trim();
+
+  if (combinedName) {
+    return combinedName;
+  }
+
+  const snapshotName = String(
+    transaction?.employeeName ||
+      transaction?.employeeFullName ||
+      transaction?.employeeSnapshot
+        ?.fullName ||
+      "",
+  ).trim();
 
   return (
-    employee.fullName ||
-    employee.name ||
-    employee.username ||
-    transaction.employeeName ||
+    snapshotName ||
     "Chưa xác định"
   );
 }
 
-/*
- * Chuẩn hóa trạng thái từ backend.
- */
+/* =========================================
+   TRẠNG THÁI
+========================================= */
+
 function normalizeStatus(status) {
   const value = String(
     status || "",
-  ).toLowerCase();
+  )
+    .trim()
+    .toLowerCase();
 
   const aliases = {
     pending: "pending",
@@ -188,10 +332,16 @@ function normalizeStatus(status) {
     rejected: "rejected",
   };
 
-  return aliases[value] || value || "unknown";
+  return (
+    aliases[value] ||
+    value ||
+    "unknown"
+  );
 }
 
-function getTransactionLabel(status) {
+function getTransactionLabel(
+  status,
+) {
   const normalized =
     normalizeStatus(status);
 
@@ -207,23 +357,37 @@ function getTransactionLabel(status) {
 
   return (
     labels[normalized] ||
-    "Không xác định"
+    labels.unknown
   );
 }
 
-function getTransactionIcon(status) {
+function getTransactionIcon(
+  status,
+) {
   const normalized =
     normalizeStatus(status);
 
   const icons = {
-    pending: "bi-hourglass-split",
-    borrowing: "bi-box-arrow-up-right",
-    returned: "bi-box-arrow-in-down-left",
+    pending:
+      "bi-hourglass-split",
+
+    borrowing:
+      "bi-box-arrow-up-right",
+
+    returned:
+      "bi-box-arrow-in-down-left",
+
     overdue:
       "bi-exclamation-triangle-fill",
-    cancelled: "bi-x-circle-fill",
-    rejected: "bi-slash-circle-fill",
-    unknown: "bi-arrow-left-right",
+
+    cancelled:
+      "bi-x-circle-fill",
+
+    rejected:
+      "bi-slash-circle-fill",
+
+    unknown:
+      "bi-arrow-left-right",
   };
 
   return (
@@ -232,32 +396,38 @@ function getTransactionIcon(status) {
   );
 }
 
-function getTransactionClass(status) {
+function getTransactionClass(
+  status,
+) {
   return `transaction-${normalizeStatus(
     status,
   )}`;
 }
 
-/*
- * Chọn thời điểm phù hợp nhất để hiển thị.
- */
-function getTransactionDate(transaction) {
-  const status = normalizeStatus(
-    transaction.status,
-  );
+/* =========================================
+   THỜI GIAN GIAO DỊCH
+========================================= */
+
+function getTransactionDate(
+  transaction,
+) {
+  const status =
+    normalizeStatus(
+      transaction?.status,
+    );
 
   if (status === "returned") {
     return (
-      transaction.returnDate ||
-      transaction.updatedAt ||
-      transaction.createdAt
+      transaction?.returnDate ||
+      transaction?.updatedAt ||
+      transaction?.createdAt
     );
   }
 
   return (
-    transaction.borrowDate ||
-    transaction.createdAt ||
-    transaction.updatedAt
+    transaction?.borrowDate ||
+    transaction?.createdAt ||
+    transaction?.updatedAt
   );
 }
 
@@ -271,45 +441,84 @@ function getTransactionDetailPath(
   return `/borrows/${transaction._id}`;
 }
 
-/*
- * Tải dữ liệu Dashboard.
- */
+/* =========================================
+   CHUẨN HÓA DỮ LIỆU GIAO DỊCH
+========================================= */
+
+function normalizeTransaction(
+  transaction,
+) {
+  if (!transaction) {
+    return null;
+  }
+
+  const reader =
+    transaction.reader ||
+    transaction.readerId ||
+    null;
+
+  const employee =
+    transaction.employee ||
+    transaction.employeeId ||
+    null;
+
+  return {
+    ...transaction,
+
+    /*
+     * Luôn chuẩn hóa về cùng tên trường
+     * để giao diện dễ sử dụng.
+     */
+    reader,
+    employee,
+  };
+}
+
+/* =========================================
+   TẢI DASHBOARD
+========================================= */
+
 async function loadDashboard() {
   loading.value = true;
   errorMessage.value = "";
 
   try {
     const response =
-      await dashboardApi.getDashboard();
+      await dashboardApi
+        .getDashboard();
 
     const data =
-      response?.data?.data ||
-      response?.data ||
+      response?.data?.data ??
+      response?.data ??
       {};
 
     dashboard.value = {
       totalBooks:
         Number(
           data.totalBooks ??
-            data.bookCount,
+            data.bookCount ??
+            0,
         ) || 0,
 
       totalBorrowing:
         Number(
           data.totalBorrowing ??
-            data.borrowingCount,
+            data.borrowingCount ??
+            0,
         ) || 0,
 
       totalReturned:
         Number(
           data.totalReturned ??
-            data.returnedCount,
+            data.returnedCount ??
+            0,
         ) || 0,
 
       totalReaders:
         Number(
           data.totalReaders ??
-            data.readerCount,
+            data.readerCount ??
+            0,
         ) || 0,
     };
 
@@ -322,12 +531,18 @@ async function loadDashboard() {
     recentTransactions.value =
       Array.isArray(transactions)
         ? transactions
+            .map(
+              normalizeTransaction,
+            )
+            .filter(Boolean)
         : [];
   } catch (error) {
     console.error(
       "Load dashboard error:",
       error,
     );
+
+    recentTransactions.value = [];
 
     errorMessage.value =
       getErrorMessage(
@@ -339,7 +554,13 @@ async function loadDashboard() {
   }
 }
 
-onMounted(loadDashboard);
+/* =========================================
+   KHỞI TẠO
+========================================= */
+
+onMounted(() => {
+  loadDashboard();
+});
 </script>
 
 <template>
@@ -591,34 +812,38 @@ onMounted(loadDashboard);
           </div>
 
           <div class="transaction-reader">
-            <div class="reader-avatar">
-              {{
-                getReaderName(
-                  transaction,
-                )
-                  .charAt(0)
-                  .toUpperCase()
-              }}
-            </div>
+  <div class="reader-avatar">
+    {{
+      getReaderInitials(
+        transaction,
+      )
+    }}
+  </div>
 
-            <div class="reader-information">
-              <strong>
-                {{
-                  getReaderName(
-                    transaction,
-                  )
-                }}
-              </strong>
+  <div class="reader-information">
+    <strong
+      :title="
+        getReaderName(
+          transaction,
+        )
+      "
+    >
+      {{
+        getReaderName(
+          transaction,
+        )
+      }}
+    </strong>
 
-              <span>
-                {{
-                  getReaderCode(
-                    transaction,
-                  )
-                }}
-              </span>
-            </div>
-          </div>
+    <span>
+      {{
+        getReaderCode(
+          transaction,
+        )
+      }}
+    </span>
+  </div>
+</div>
 
           <div class="transaction-employee">
             <span class="information-label">

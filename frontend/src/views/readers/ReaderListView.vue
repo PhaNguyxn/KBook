@@ -457,7 +457,7 @@ onMounted(() => {
       <div class="filter-heading">
         <div>
           <h2>
-            Tìm kiếm và bộ lọc
+            Quản lý độc giả
           </h2>
 
         </div>

@@ -7,6 +7,8 @@ const employeeSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
+      uppercase: true,
+      immutable: true,
     },
 
     fullName: {

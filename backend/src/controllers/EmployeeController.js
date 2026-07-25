@@ -96,24 +96,25 @@ const updateEmployee = async (req, res) => {
 
 const deleteEmployee = async (req, res) => {
   try {
-    if (req.params.id === req.user.id) {
-      return res.status(400).json({
-        success: false,
-        message: "Bạn không thể tự khóa tài khoản của mình",
-      });
-    }
+    const currentEmployeeId =
+      req.user?._id || req.user?.id || req.employee?._id || req.employee?.id;
 
-    const employee = await EmployeeService.deleteEmployee(req.params.id);
+    const employee = await EmployeeService.deleteEmployee(
+      req.params.id,
+      currentEmployeeId,
+    );
 
     return res.status(200).json({
       success: true,
-      message: "Khóa nhân viên thành công",
+      message: "Xóa nhân viên thành công",
       data: employee,
     });
   } catch (error) {
+    console.error("Delete employee error:", error);
+
     return res.status(400).json({
       success: false,
-      message: error.message,
+      message: error.message || "Không thể xóa nhân viên",
     });
   }
 };

@@ -32,12 +32,14 @@ import BorrowListView from "@/views/borrows/BorrowListView.vue";
 import BorrowFormView from "@/views/borrows/BorrowFormView.vue";
 import BorrowDetailView from "@/views/borrows/BorrowDetailView.vue";
 import BorrowRequestView from "@/views/borrowRequests/BorrowRequestView.vue";
+import BorrowRequestDetailView from "@/views/borrowRequests/BorrowRequestDetailView.vue";
 
 /* =========================
    EMPLOYEES
 ========================= */
 
 import EmployeeListView from "@/views/employees/EmployeeListView.vue";
+import EmployeeFormView from "@/views/employees/EmployeeFormView.vue";
 
 /* =========================
    AUTH AND ERRORS
@@ -175,6 +177,12 @@ const routes = [
         name: "borrow-requests",
         component: BorrowRequestView,
       },
+      {
+        path: "borrow-requests/:id",
+        name: "borrow-request-detail",
+        component: BorrowRequestDetailView,
+        props: true,
+      },
 
       {
         path: "borrows",
@@ -215,16 +223,20 @@ const routes = [
           adminOnly: true,
         },
       },
-
-      /* =====================
-         CHUYỂN HƯỚNG CŨ
-      ===================== */
-
       {
-        path: "publishers",
-        redirect: {
-          name: "borrow-requests",
+        path: "employees/create",
+        name: "employees-create",
+        component: EmployeeFormView,
+
+        meta: {
+          adminOnly: true,
         },
+      },
+      {
+        path: "employees/:id/edit",
+        name: "employees-edit",
+        component: EmployeeFormView,
+        props: true,
       },
     ],
   },

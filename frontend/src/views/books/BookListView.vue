@@ -693,7 +693,7 @@ onMounted(async () => {
       <div class="filter-heading">
         <div>
           <h2>
-            Tìm kiếm và bộ lọc
+            Quản lý sách
           </h2>
         </div>
 
