@@ -49,10 +49,45 @@ const readerSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    password: {
+      type: String,
+      required: true,
+      minlength: 6,
+      select: false,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      sparse: true,
+
+      trim: true,
+      lowercase: true,
+      index: true,
+    },
   },
   {
     timestamps: true,
+
+    toJSON: {
+      virtuals: true,
+      transform(document, result) {
+        delete result.password;
+        delete result.__v;
+
+        return result;
+      },
+    },
+
+    toObject: {
+      virtuals: true,
+    },
   },
 );
+
+readerSchema.virtual("fullName").get(function getFullName() {
+  return `${this.lastName || ""} ${this.firstName || ""}`.trim();
+});
 
 module.exports = mongoose.model("Reader", readerSchema);

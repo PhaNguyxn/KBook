@@ -1,21 +1,31 @@
 <script setup>
 import {
+  onMounted,
   reactive,
   ref,
 } from "vue";
 
-import { useRouter } from "vue-router";
+import {
+  RouterLink,
+  useRoute,
+  useRouter,
+} from "vue-router";
 
-import { useAuthStore } from "@/stores/auth";
+import {
+  useReaderAuthStore,
+} from "@/stores/readerAuth";
 
+const route = useRoute();
 const router = useRouter();
-const authStore = useAuthStore();
+
+const authStore =
+  useReaderAuthStore();
 
 const showPassword = ref(false);
 const errorMessage = ref("");
 
 const form = reactive({
-  employeeCode: "",
+  email: "",
   password: "",
 });
 
@@ -23,30 +33,36 @@ const form = reactive({
    HÀM HỖ TRỢ
 ========================================= */
 
-function normalizeEmployeeCode() {
-  form.employeeCode = String(
-    form.employeeCode || "",
+function normalizeEmail() {
+  form.email = String(
+    form.email || "",
   )
-    .replace(/\s+/g, "")
-    .toUpperCase();
+    .trim()
+    .toLowerCase();
 }
 
 function validateForm() {
-  const employeeCode =
-    form.employeeCode.trim();
+  const email =
+    form.email
+      .trim()
+      .toLowerCase();
 
-  const password =
-    form.password;
-
-  if (!employeeCode) {
-    return "Vui lòng nhập mã nhân viên";
+  if (!email) {
+    return "Vui lòng nhập email";
   }
 
-  if (!password) {
+  const emailPattern =
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailPattern.test(email)) {
+    return "Email không hợp lệ";
+  }
+
+  if (!form.password) {
     return "Vui lòng nhập mật khẩu";
   }
 
-  if (password.length < 6) {
+  if (form.password.length < 6) {
     return "Mật khẩu phải có ít nhất 6 ký tự";
   }
 
@@ -60,7 +76,7 @@ function validateForm() {
 async function handleLogin() {
   errorMessage.value = "";
 
-  normalizeEmployeeCode();
+  normalizeEmail();
 
   const validationMessage =
     validateForm();
@@ -74,39 +90,60 @@ async function handleLogin() {
 
   try {
     await authStore.login({
-      employeeCode:
-        form.employeeCode.trim(),
+      email:
+        form.email,
 
       password:
         form.password,
     });
 
-    await router.push({
-      name: "dashboard",
-    });
+    const redirect =
+      typeof route.query.redirect ===
+      "string"
+        ? route.query.redirect
+        : "/";
+
+    await router.push(
+      redirect,
+    );
   } catch (error) {
     console.error(
-      "Login error:",
+      "Reader login error:",
       error,
     );
 
     errorMessage.value =
-      error?.response?.data?.message ||
+      error?.response?.data
+        ?.message ||
       error?.message ||
-      "Đăng nhập không thành công";
+      "Email hoặc mật khẩu không chính xác";
   }
 }
+
+/* =========================================
+   TỰ ĐIỀN EMAIL SAU ĐĂNG KÝ
+========================================= */
+
+onMounted(() => {
+  const email =
+    route.query.email;
+
+  if (
+    typeof email === "string"
+  ) {
+    form.email =
+      email
+        .trim()
+        .toLowerCase();
+  }
+});
 </script>
 
 <template>
-  <main class="login-page">
-    <div class="background-decoration decoration-one" />
-    <div class="background-decoration decoration-two" />
-    <div class="background-decoration decoration-three" />
-
-    <section class="login-container">
+  <main class="auth-page">
+    <section class="auth-container">
       <!-- Khu vực giới thiệu -->
-      <aside class="login-introduction">
+      <aside class="introduction-panel">
         <div class="brand">
           <div class="brand-icon">
             <i class="bi bi-book-half" />
@@ -116,59 +153,41 @@ async function handleLogin() {
             <strong>KBook</strong>
 
             <span>
-              Library Management
+              Thư viện trực tuyến
             </span>
           </div>
         </div>
 
         <div class="introduction-content">
           <span class="introduction-label">
-            Hệ thống thư viện
+            Dành cho độc giả
           </span>
 
           <h1>
-            Quản lý thư viện
-            <br />
-            nhanh chóng và hiệu quả
+            Khám phá thế giới sách
+            cùng KBook
           </h1>
 
           <p>
-            Theo dõi sách, độc giả, nhân viên
-            và quá trình mượn trả trên cùng một
-            hệ thống quản lý.
+            Tra cứu sách, gửi yêu cầu mượn,
+            theo dõi hạn trả và quản lý lịch
+            sử đọc sách thuận tiện.
           </p>
 
           <div class="feature-list">
             <div class="feature-item">
               <span class="feature-icon">
-                <i class="bi bi-journals" />
+                <i class="bi bi-search" />
               </span>
 
               <div>
                 <strong>
-                  Quản lý đầu sách
+                  Tìm kiếm sách
                 </strong>
 
                 <small>
-                  Theo dõi số lượng và tình
-                  trạng sách trong thư viện.
-                </small>
-              </div>
-            </div>
-
-            <div class="feature-item">
-              <span class="feature-icon">
-                <i class="bi bi-people" />
-              </span>
-
-              <div>
-                <strong>
-                  Quản lý độc giả
-                </strong>
-
-                <small>
-                  Lưu trữ và tra cứu thông tin
-                  độc giả thuận tiện.
+                  Tra cứu sách theo tên, tác giả
+                  và thể loại.
                 </small>
               </div>
             </div>
@@ -176,18 +195,37 @@ async function handleLogin() {
             <div class="feature-item">
               <span class="feature-icon">
                 <i
-                  class="bi bi-arrow-left-right"
+                  class="bi bi-send-check"
                 />
               </span>
 
               <div>
                 <strong>
-                  Quản lý mượn trả
+                  Mượn sách trực tuyến
                 </strong>
 
                 <small>
-                  Theo dõi yêu cầu, phiếu mượn
-                  và hạn trả sách.
+                  Gửi và theo dõi yêu cầu mượn
+                  sách ngay trên hệ thống.
+                </small>
+              </div>
+            </div>
+
+            <div class="feature-item">
+              <span class="feature-icon">
+                <i
+                  class="bi bi-clock-history"
+                />
+              </span>
+
+              <div>
+                <strong>
+                  Theo dõi mượn trả
+                </strong>
+
+                <small>
+                  Kiểm tra hạn trả và lịch sử
+                  mượn sách dễ dàng.
                 </small>
               </div>
             </div>
@@ -197,17 +235,14 @@ async function handleLogin() {
         <div class="introduction-footer">
           <i class="bi bi-shield-check" />
 
-          <span>
-            Hệ thống quản lý nội bộ dành cho
-            nhân viên thư viện
-          </span>
+          Thông tin tài khoản được bảo vệ an toàn
         </div>
       </aside>
 
       <!-- Form đăng nhập -->
-      <section class="login-form-section">
+      <section class="form-panel">
         <div class="mobile-brand">
-          <div class="brand-icon">
+          <div class="mobile-brand-icon">
             <i class="bi bi-book-half" />
           </div>
 
@@ -215,31 +250,31 @@ async function handleLogin() {
             <strong>KBook</strong>
 
             <span>
-              Library Management
+              Thư viện trực tuyến
             </span>
           </div>
         </div>
 
         <form
-          class="login-form"
+          class="auth-form"
           @submit.prevent="handleLogin"
         >
           <header class="form-header">
-            <span class="welcome-label">
+            <span class="form-label">
               Chào mừng trở lại
             </span>
 
             <h2>
-              Đăng nhập hệ thống
+              Đăng nhập độc giả
             </h2>
 
             <p>
-              Nhập thông tin tài khoản nhân viên
-              để tiếp tục.
+              Sử dụng email đã đăng ký để truy
+              cập tài khoản thư viện.
             </p>
           </header>
 
-          <!-- Thông báo lỗi -->
+          <!-- Lỗi -->
           <div
             v-if="errorMessage"
             class="error-alert"
@@ -262,32 +297,30 @@ async function handleLogin() {
             </button>
           </div>
 
-          <!-- Mã nhân viên -->
+          <!-- Email -->
           <div class="form-group">
-            <label for="employeeCode">
-              Mã nhân viên
+            <label for="email">
+              Email
             </label>
 
             <div class="input-wrapper">
-              <i
-                class="bi bi-person-badge"
-              />
+              <i class="bi bi-envelope" />
 
               <input
-                id="employeeCode"
-                v-model="form.employeeCode"
-                type="text"
-                maxlength="20"
-                autocomplete="username"
+                id="email"
+                v-model="form.email"
+                type="email"
+                maxlength="120"
+                autocomplete="email"
                 spellcheck="false"
-                placeholder="Ví dụ: NV001"
-                @input="normalizeEmployeeCode"
+                placeholder="example@gmail.com"
+                @blur="normalizeEmail"
               />
             </div>
 
             <small>
-              Sử dụng mã nhân viên do hệ thống
-              cung cấp.
+              Nhập email đã sử dụng khi đăng ký
+              tài khoản.
             </small>
           </div>
 
@@ -298,7 +331,7 @@ async function handleLogin() {
                 Mật khẩu
               </label>
 
-              <span class="password-note">
+              <span>
                 Ít nhất 6 ký tự
               </span>
             </div>
@@ -344,35 +377,17 @@ async function handleLogin() {
             </div>
           </div>
 
-          <!-- Ghi nhớ -->
-          <div class="form-options">
-            <label class="remember-account">
-              <input
-                type="checkbox"
-                disabled
-              />
-
-              <span>
-                Ghi nhớ tài khoản
-              </span>
-            </label>
-
-            <span class="support-text">
-              Liên hệ quản trị viên khi quên
-              mật khẩu
-            </span>
-          </div>
-
           <!-- Nút đăng nhập -->
           <button
             type="submit"
-            class="login-button"
-            :disabled="authStore.loading"
+            class="submit-button"
+            :disabled="
+              authStore.loading
+            "
           >
             <span
               v-if="authStore.loading"
-              class="spinner-border spinner-border-sm"
-              role="status"
+              class="loading-spinner"
             />
 
             <i
@@ -387,20 +402,31 @@ async function handleLogin() {
             }}
           </button>
 
+          <p class="switch-page">
+            Chưa có tài khoản?
+
+            <RouterLink
+              :to="{
+                name:
+                  'reader-register',
+              }"
+            >
+              Đăng ký ngay
+            </RouterLink>
+          </p>
+
           <div class="security-note">
-            <i
-              class="bi bi-lock-fill"
-            />
+            <i class="bi bi-lock-fill" />
 
             <span>
-              Thông tin đăng nhập được bảo vệ
-              và chỉ sử dụng trong hệ thống.
+              Email và mật khẩu chỉ được sử dụng
+              để xác thực tài khoản độc giả.
             </span>
           </div>
         </form>
 
-        <footer class="login-footer">
-          © 2026 KBook — Hệ thống quản lý thư viện
+        <footer class="form-footer">
+          © 2026 KBook — Thư viện trực tuyến
         </footer>
       </section>
     </section>
@@ -408,87 +434,40 @@ async function handleLogin() {
 </template>
 
 <style scoped>
-.login-page {
-  position: relative;
-  overflow: hidden;
+.auth-page {
   min-height: 100vh;
-  padding: 28px;
+  padding: 25px;
   display: grid;
   place-items: center;
   background:
     radial-gradient(
-      circle at 12% 15%,
-      rgb(59 130 246 / 16%),
-      transparent 29%
+      circle at 10% 10%,
+      rgb(59 130 246 / 14%),
+      transparent 30%
     ),
     radial-gradient(
-      circle at 88% 85%,
-      rgb(99 102 241 / 12%),
-      transparent 27%
+      circle at 90% 90%,
+      rgb(99 102 241 / 10%),
+      transparent 28%
     ),
     linear-gradient(
       135deg,
-      #eef5ff 0%,
-      #f8fafc 48%,
-      #edf4ff 100%
+      #eff6ff,
+      #f8fafc
     );
 }
 
-/* =========================================
-   TRANG TRÍ NỀN
-========================================= */
-
-.background-decoration {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  filter: blur(2px);
-}
-
-.decoration-one {
-  width: 220px;
-  height: 220px;
-  top: -90px;
-  left: -70px;
-  background:
-    rgb(59 130 246 / 9%);
-}
-
-.decoration-two {
-  width: 290px;
-  height: 290px;
-  right: -120px;
-  bottom: -130px;
-  background:
-    rgb(99 102 241 / 9%);
-}
-
-.decoration-three {
-  width: 110px;
-  height: 110px;
-  top: 15%;
-  right: 8%;
-  border: 20px solid
-    rgb(59 130 246 / 5%);
-}
-
-/* =========================================
-   CONTAINER
-========================================= */
-
-.login-container {
-  position: relative;
-  z-index: 1;
+.auth-container {
   width: 100%;
-  max-width: 1080px;
-  min-height: 650px;
+  max-width: 1050px;
+  min-height: 640px;
   overflow: hidden;
   display: grid;
   grid-template-columns:
     minmax(0, 1.05fr)
     minmax(390px, 0.95fr);
   border: 1px solid
-    rgb(255 255 255 / 78%);
+    rgb(255 255 255 / 80%);
   border-radius: 28px;
   background: #fff;
   box-shadow:
@@ -497,10 +476,10 @@ async function handleLogin() {
 }
 
 /* =========================================
-   KHU VỰC GIỚI THIỆU
+   PHẦN GIỚI THIỆU
 ========================================= */
 
-.login-introduction {
+.introduction-panel {
   position: relative;
   overflow: hidden;
   padding: 42px;
@@ -508,21 +487,20 @@ async function handleLogin() {
   flex-direction: column;
   background:
     radial-gradient(
-      circle at 92% 10%,
+      circle at 90% 10%,
       rgb(255 255 255 / 14%),
       transparent 25%
     ),
     linear-gradient(
       145deg,
-      #2563eb 0%,
-      #1d4ed8 47%,
-      #1e3a8a 100%
+      #2563eb,
+      #1e3a8a
     );
   color: #fff;
 }
 
-.login-introduction::before,
-.login-introduction::after {
+.introduction-panel::before,
+.introduction-panel::after {
   position: absolute;
   border-radius: 50%;
   background:
@@ -530,18 +508,18 @@ async function handleLogin() {
   content: "";
 }
 
-.login-introduction::before {
-  width: 250px;
-  height: 250px;
+.introduction-panel::before {
+  width: 240px;
+  height: 240px;
   top: -100px;
   right: -90px;
 }
 
-.login-introduction::after {
-  width: 180px;
-  height: 180px;
-  bottom: -85px;
-  left: -65px;
+.introduction-panel::after {
+  width: 170px;
+  height: 170px;
+  bottom: -80px;
+  left: -60px;
 }
 
 .brand,
@@ -553,35 +531,45 @@ async function handleLogin() {
   gap: 12px;
 }
 
-.brand-icon {
+.brand-icon,
+.mobile-brand-icon {
   width: 48px;
   height: 48px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
   border-radius: 15px;
-  background:
-    rgb(255 255 255 / 18%);
-  color: #fff;
   font-size: 21px;
-  backdrop-filter: blur(8px);
+}
+
+.brand-icon {
+  background:
+    rgb(255 255 255 / 17%);
+}
+
+.mobile-brand-icon {
+  background: #2563eb;
+  color: #fff;
+}
+
+.brand strong,
+.brand span,
+.mobile-brand strong,
+.mobile-brand span {
+  display: block;
 }
 
 .brand strong,
 .mobile-brand strong {
-  display: block;
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 900;
-  letter-spacing: 0.5px;
 }
 
 .brand span,
 .mobile-brand span {
-  display: block;
   margin-top: 2px;
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.7px;
   opacity: 0.75;
   text-transform: uppercase;
 }
@@ -593,44 +581,39 @@ async function handleLogin() {
 }
 
 .introduction-label {
-  display: inline-flex;
   padding: 6px 10px;
-  border: 1px solid
-    rgb(255 255 255 / 18%);
+  display: inline-flex;
   border-radius: 999px;
   background:
-    rgb(255 255 255 / 10%);
+    rgb(255 255 255 / 12%);
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 900;
   letter-spacing: 0.8px;
   text-transform: uppercase;
 }
 
 .introduction-content h1 {
-  margin: 17px 0 15px;
-  font-size: clamp(
-    30px,
-    3.2vw,
-    43px
-  );
+  max-width: 490px;
+  margin: 19px 0 14px;
+  font-size: 40px;
   font-weight: 900;
-  line-height: 1.18;
+  line-height: 1.2;
 }
 
 .introduction-content > p {
-  max-width: 470px;
+  max-width: 460px;
   margin: 0;
   color:
-    rgb(255 255 255 / 76%);
+    rgb(255 255 255 / 74%);
   font-size: 13px;
   line-height: 1.8;
 }
 
 .feature-list {
-  margin-top: 29px;
+  margin-top: 27px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 11px;
 }
 
 .feature-item {
@@ -642,8 +625,7 @@ async function handleLogin() {
     rgb(255 255 255 / 11%);
   border-radius: 13px;
   background:
-    rgb(255 255 255 / 7%);
-  backdrop-filter: blur(8px);
+    rgb(255 255 255 / 8%);
 }
 
 .feature-icon {
@@ -655,7 +637,6 @@ async function handleLogin() {
   border-radius: 10px;
   background:
     rgb(255 255 255 / 13%);
-  font-size: 16px;
 }
 
 .feature-item strong,
@@ -672,7 +653,6 @@ async function handleLogin() {
   color:
     rgb(255 255 255 / 67%);
   font-size: 9px;
-  line-height: 1.5;
 }
 
 .introduction-footer {
@@ -687,34 +667,32 @@ async function handleLogin() {
 }
 
 /* =========================================
-   FORM SECTION
+   FORM
 ========================================= */
 
-.login-form-section {
+.form-panel {
   padding: 45px 50px 28px;
   display: flex;
   justify-content: center;
   flex-direction: column;
-  background: #fff;
 }
 
 .mobile-brand {
   display: none;
+  color: #1e3a8a;
 }
 
-.login-form {
+.auth-form {
   width: 100%;
-  max-width: 390px;
+  max-width: 385px;
   margin: auto;
 }
 
 .form-header {
-  margin-bottom: 28px;
+  margin-bottom: 27px;
 }
 
-.welcome-label {
-  display: block;
-  margin-bottom: 8px;
+.form-label {
   color: #3b82f6;
   font-size: 9px;
   font-weight: 900;
@@ -723,26 +701,22 @@ async function handleLogin() {
 }
 
 .form-header h2 {
-  margin: 0;
+  margin: 8px 0 7px;
   color: #1e3a8a;
-  font-size: 28px;
+  font-size: 29px;
   font-weight: 900;
 }
 
 .form-header p {
-  margin: 9px 0 0;
+  margin: 0;
   color: #94a3b8;
   font-size: 11px;
-  line-height: 1.65;
+  line-height: 1.7;
 }
-
-/* =========================================
-   THÔNG BÁO LỖI
-========================================= */
 
 .error-alert {
   min-height: 47px;
-  margin-bottom: 19px;
+  margin-bottom: 18px;
   padding: 11px 12px;
   display: flex;
   align-items: center;
@@ -755,26 +729,21 @@ async function handleLogin() {
   font-weight: 700;
 }
 
-.error-alert > span {
+.error-alert span {
   min-width: 0;
   flex: 1;
 }
 
-.error-alert > button {
+.error-alert button {
   width: 27px;
   height: 27px;
   padding: 0;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 7px;
   background: transparent;
   color: inherit;
 }
-
-/* =========================================
-   FORM
-========================================= */
 
 .form-group {
   margin-bottom: 18px;
@@ -793,10 +762,9 @@ async function handleLogin() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
 }
 
-.password-note {
+.label-row > span {
   margin-bottom: 7px;
   color: #94a3b8;
   font-size: 8px;
@@ -810,35 +778,24 @@ async function handleLogin() {
   position: absolute;
   top: 50%;
   left: 14px;
-  z-index: 1;
   color: #94a3b8;
   transform: translateY(-50%);
-  pointer-events: none;
 }
 
 .input-wrapper input {
   width: 100%;
   height: 49px;
-  padding: 0 14px 0 43px;
+  padding: 0 43px;
   border: 1px solid #dce5f0;
   border-radius: 12px;
   background: #fff;
   color: #334155;
   font-size: 12px;
   outline: none;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    background 0.2s ease;
-}
-
-.input-wrapper input::placeholder {
-  color: #b6c1cf;
 }
 
 .input-wrapper input:focus {
   border-color: #60a5fa;
-  background: #fbfdff;
   box-shadow:
     0 0 0 4px
     rgb(59 130 246 / 11%);
@@ -880,43 +837,7 @@ async function handleLogin() {
   color: #2563eb;
 }
 
-/* =========================================
-   TÙY CHỌN FORM
-========================================= */
-
-.form-options {
-  margin: 3px 0 21px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 13px;
-}
-
-.remember-account {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #64748b;
-  font-size: 9px;
-}
-
-.remember-account input {
-  width: 14px;
-  height: 14px;
-  accent-color: #2563eb;
-}
-
-.support-text {
-  color: #94a3b8;
-  font-size: 8px;
-  text-align: right;
-}
-
-/* =========================================
-   NÚT ĐĂNG NHẬP
-========================================= */
-
-.login-button {
+.submit-button {
   width: 100%;
   min-height: 49px;
   padding: 0 18px;
@@ -934,25 +855,43 @@ async function handleLogin() {
   color: #fff;
   font-size: 11px;
   font-weight: 900;
-  cursor: pointer;
   box-shadow:
     0 10px 22px
     rgb(37 99 235 / 23%);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
 }
 
-.login-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow:
-    0 14px 28px
-    rgb(37 99 235 / 30%);
-}
-
-.login-button:disabled {
+.submit-button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
+}
+
+.loading-spinner {
+  width: 17px;
+  height: 17px;
+  border: 2px solid
+    rgb(255 255 255 / 40%);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation:
+    spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.switch-page {
+  margin-top: 20px;
+  color: #64748b;
+  font-size: 11px;
+  text-align: center;
+}
+
+.switch-page a {
+  color: #2563eb;
+  font-weight: 900;
 }
 
 .security-note {
@@ -969,101 +908,52 @@ async function handleLogin() {
   text-align: center;
 }
 
-.security-note i {
-  color: #64748b;
-}
-
-.login-footer {
+.form-footer {
   margin-top: 29px;
   color: #94a3b8;
   font-size: 8px;
   text-align: center;
 }
 
-/* =========================================
-   RESPONSIVE
-========================================= */
-
 @media (max-width: 900px) {
-  .login-container {
+  .auth-container {
     max-width: 500px;
     min-height: auto;
     grid-template-columns: 1fr;
   }
 
-  .login-introduction {
+  .introduction-panel {
     display: none;
   }
 
-  .login-form-section {
+  .form-panel {
     min-height: 620px;
     padding: 35px 45px 25px;
   }
 
   .mobile-brand {
-    margin-bottom: 43px;
+    margin-bottom: 42px;
     display: flex;
-    color: #1e3a8a;
-  }
-
-  .mobile-brand .brand-icon {
-    background: linear-gradient(
-      135deg,
-      #438df8,
-      #2563eb
-    );
-    color: #fff;
   }
 }
 
-@media (max-width: 560px) {
-  .login-page {
-    padding: 15px;
+@media (max-width: 520px) {
+  .auth-page {
+    padding: 0;
   }
 
-  .login-container {
-    border-radius: 21px;
+  .auth-container {
+    min-height: 100vh;
+    border-radius: 0;
   }
 
-  .login-form-section {
-    min-height: calc(
-      100vh - 30px
-    );
-    padding: 27px 23px 20px;
-  }
-
-  .mobile-brand {
-    margin-bottom: 35px;
+  .form-panel {
+    min-height: 100vh;
+    padding: 26px 23px;
   }
 
   .form-header h2 {
     font-size: 24px;
-  }
-
-  .form-options {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .support-text {
-    text-align: left;
-  }
-}
-
-@media (max-width: 380px) {
-  .login-page {
-    padding: 0;
-  }
-
-  .login-container {
-    min-height: 100vh;
-    border: 0;
-    border-radius: 0;
-  }
-
-  .login-form-section {
-    min-height: 100vh;
-    padding: 25px 19px;
   }
 }
 </style>
