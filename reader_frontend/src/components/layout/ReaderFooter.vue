@@ -155,8 +155,7 @@
 
           <p>
             <i class="bi bi-geo-alt" />
-            123 Đường Sách, Q.1,
-            TP. Hồ Chí Minh
+            123 Đường Sách, Ninh Kiều, Cần Thơ
           </p>
         </div>
       </div>

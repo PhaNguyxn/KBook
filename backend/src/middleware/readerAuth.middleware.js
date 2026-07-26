@@ -1,87 +1,91 @@
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 
 const Reader = require("../models/Reader");
 
 async function readerAuthMiddleware(req, res, next) {
   try {
-    const authorization = req.headers.authorization || "";
+    const authorization = String(req.headers.authorization || "");
 
-    const [scheme, token] = authorization.split(" ");
-
-    if (scheme !== "Bearer" || !token) {
+    if (!authorization.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
-        message: "Vui lòng đăng nhập để tiếp tục",
+        code: "READER_TOKEN_MISSING",
+        message: "Vui lòng đăng nhập tài khoản độc giả",
       });
     }
 
-    const secret = process.env.JWT_SECRET;
+    const token = authorization.slice(7).trim();
 
-    if (!secret) {
-      return res.status(500).json({
+    if (!token) {
+      return res.status(401).json({
         success: false,
-        message: "JWT_SECRET chưa được cấu hình",
+        code: "READER_TOKEN_MISSING",
+        message: "Phiên đăng nhập không hợp lệ",
       });
     }
 
-    const payload = jwt.verify(token, secret);
+    let decoded;
 
-    if (payload.type !== "reader") {
-      return res.status(403).json({
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      const isExpired = error.name === "TokenExpiredError";
+
+      return res.status(401).json({
         success: false,
+
+        code: isExpired ? "READER_TOKEN_EXPIRED" : "READER_TOKEN_INVALID",
+
+        message: isExpired
+          ? "Phiên đăng nhập đã hết hạn"
+          : "Phiên đăng nhập không hợp lệ",
+      });
+    }
+
+    if (decoded.type && decoded.type !== "reader") {
+      return res.status(401).json({
+        success: false,
+        code: "INVALID_ACCOUNT_TYPE",
         message: "Token không thuộc tài khoản độc giả",
       });
     }
 
-    const readerId = payload.readerId || payload.id;
+    const readerId =
+      decoded.readerId || decoded.id || decoded._id || decoded.sub;
 
-    const reader = await Reader.findById(readerId);
+    if (!readerId || !mongoose.isValidObjectId(readerId)) {
+      return res.status(401).json({
+        success: false,
+        code: "READER_ID_INVALID",
+        message: "Thông tin tài khoản không hợp lệ",
+      });
+    }
+
+    const reader = await Reader.findById(readerId).select("-password");
 
     if (!reader) {
       return res.status(401).json({
         success: false,
-        message: "Tài khoản độc giả không còn tồn tại",
+        code: "READER_NOT_FOUND",
+        message: "Tài khoản không còn tồn tại. Vui lòng đăng nhập lại",
       });
     }
 
     if (reader.status === false) {
       return res.status(403).json({
         success: false,
+        code: "READER_LOCKED",
         message: "Tài khoản độc giả đã bị khóa",
       });
     }
 
-    /*
-     * Có thể sử dụng cả req.readerId
-     * và req.reader trong controller.
-     */
     req.readerId = reader._id;
-
     req.reader = reader;
 
-    req.auth = {
-      type: "reader",
-      id: reader._id,
-      readerCode: reader.readerCode,
-    };
-
-    next();
+    return next();
   } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({
-        success: false,
-        message: "Phiên đăng nhập đã hết hạn",
-      });
-    }
-
-    if (error.name === "JsonWebTokenError") {
-      return res.status(401).json({
-        success: false,
-        message: "Token đăng nhập không hợp lệ",
-      });
-    }
-
-    console.error("Reader auth middleware error:", error);
+    console.error("Reader authentication error:", error);
 
     return res.status(500).json({
       success: false,

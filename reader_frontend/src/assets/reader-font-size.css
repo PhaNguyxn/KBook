@@ -1,0 +1,420 @@
+/* =========================================
+   CỠ CHỮ CHUNG
+========================================= */
+
+html {
+  font-size: 16px;
+}
+
+body {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* Tiêu đề trang */
+
+h1 {
+  font-size: 38px !important;
+  line-height: 1.25 !important;
+}
+
+h2 {
+  font-size: 28px !important;
+  line-height: 1.35 !important;
+}
+
+h3 {
+  font-size: 19px !important;
+  line-height: 1.4 !important;
+}
+
+p {
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* Nhãn và nội dung nhỏ */
+
+small {
+  font-size: 12px !important;
+}
+
+label {
+  font-size: 14px !important;
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+  font-size: 14px !important;
+}
+
+/* =========================================
+   HEADER
+========================================= */
+
+.top-bar-inner,
+.top-contact,
+.top-promotion,
+.help-link {
+  font-size: 12px !important;
+}
+
+.brand-text strong {
+  font-size: 29px !important;
+}
+
+.brand-text small {
+  font-size: 12px !important;
+}
+
+.header-search input {
+  font-size: 15px !important;
+}
+
+.category-select-wrapper select {
+  font-size: 13px !important;
+}
+
+.submit-search-button {
+  font-size: 14px !important;
+}
+
+.account-information small,
+.login-information small {
+  font-size: 12px !important;
+}
+
+.account-information strong,
+.login-information strong {
+  font-size: 14px !important;
+}
+
+.navigation-links > a,
+.navigation-links > button,
+.category-navigation,
+.member-promotion {
+  font-size: 14px !important;
+}
+
+/* Menu tài khoản */
+
+.dropdown-reader-info strong {
+  font-size: 15px !important;
+}
+
+.dropdown-reader-info small {
+  font-size: 12px !important;
+}
+
+.account-dropdown > a,
+.dropdown-logout {
+  font-size: 14px !important;
+}
+
+/* =========================================
+   THẺ SÁCH
+========================================= */
+
+.book-category {
+  font-size: 12px !important;
+}
+
+.book-title {
+  min-height: 50px !important;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+}
+
+.book-author {
+  font-size: 13px !important;
+}
+
+.book-meta,
+.publisher {
+  font-size: 12px !important;
+}
+
+.quantity-information {
+  font-size: 13px !important;
+}
+
+.stock-badge {
+  padding: 6px 10px !important;
+  font-size: 11px !important;
+}
+
+.borrow-button {
+  min-height: 44px !important;
+  font-size: 14px !important;
+}
+
+/* =========================================
+   DANH MỤC SÁCH
+========================================= */
+
+.category-card strong {
+  font-size: 15px !important;
+}
+
+.category-card small {
+  font-size: 12px !important;
+}
+
+.category-card em {
+  font-size: 11px !important;
+}
+
+/* =========================================
+   TRANG PROFILE, YÊU CẦU, LỊCH SỬ
+========================================= */
+
+.breadcrumb {
+  font-size: 12px !important;
+}
+
+.account-banner p,
+.page-banner p {
+  font-size: 14px !important;
+}
+
+.reader-summary h2 {
+  font-size: 19px !important;
+}
+
+.reader-summary p {
+  font-size: 13px !important;
+}
+
+.account-navigation a {
+  font-size: 14px !important;
+}
+
+.profile-card-header span,
+.section-label,
+.banner-label {
+  font-size: 12px !important;
+}
+
+.profile-card-header p {
+  font-size: 13px !important;
+}
+
+.profile-tabs button {
+  font-size: 13px !important;
+}
+
+.reader-identity small {
+  font-size: 12px !important;
+}
+
+.reader-identity strong {
+  font-size: 16px !important;
+}
+
+.reader-identity p {
+  font-size: 12px !important;
+}
+
+/* Form */
+
+.form-group label {
+  font-size: 14px !important;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  font-size: 14px !important;
+}
+
+.form-group > small {
+  font-size: 11px !important;
+}
+
+.cancel-button,
+.save-button,
+.submit-contact-button {
+  font-size: 14px !important;
+}
+
+/* =========================================
+   THỐNG KÊ
+========================================= */
+
+.summary-grid small {
+  font-size: 12px !important;
+}
+
+.summary-grid strong {
+  font-size: 25px !important;
+}
+
+.request-header small,
+.history-header small {
+  font-size: 12px !important;
+}
+
+.request-header strong,
+.history-header strong {
+  font-size: 15px !important;
+}
+
+.status-badge {
+  padding: 8px 12px !important;
+  font-size: 12px !important;
+}
+
+.request-overview small,
+.history-overview small {
+  font-size: 12px !important;
+}
+
+.request-overview strong,
+.history-overview strong {
+  font-size: 14px !important;
+}
+
+.detail-button {
+  min-height: 40px !important;
+  font-size: 13px !important;
+}
+
+/* Sách trong yêu cầu và lịch sử */
+
+.request-books h3,
+.request-note h3,
+.borrowed-books h3,
+.borrow-information h3 {
+  font-size: 16px !important;
+}
+
+.request-book strong,
+.borrowed-book strong {
+  font-size: 14px !important;
+}
+
+.request-book span,
+.borrowed-book span {
+  font-size: 12px !important;
+}
+
+.request-book small,
+.borrowed-book small {
+  font-size: 11px !important;
+}
+
+.request-note span,
+.borrow-information span {
+  font-size: 12px !important;
+}
+
+.request-note p,
+.borrow-information p {
+  font-size: 13px !important;
+}
+
+/* =========================================
+   NÚT VÀ BỘ LỌC
+========================================= */
+
+.toolbar-search input,
+.request-toolbar select,
+.history-toolbar select {
+  font-size: 13px !important;
+}
+
+.filter-button,
+.clear-button,
+.create-request-link,
+.cancel-request-button {
+  font-size: 13px !important;
+}
+
+/* =========================================
+   TRANG THÔNG TIN KBOOK
+========================================= */
+
+.banner-content > p,
+.introduction-content > p,
+.mission-content > p {
+  font-size: 14px !important;
+}
+
+.introduction-features div {
+  font-size: 14px !important;
+}
+
+.service-card h3 {
+  font-size: 18px !important;
+}
+
+.service-card p {
+  font-size: 13px !important;
+}
+
+.service-card a {
+  font-size: 13px !important;
+}
+
+.mission-values h3 {
+  font-size: 16px !important;
+}
+
+.mission-values p {
+  font-size: 13px !important;
+}
+
+.contact-item small {
+  font-size: 12px !important;
+}
+
+.contact-item strong {
+  font-size: 14px !important;
+}
+
+.map-information h3 {
+  font-size: 16px !important;
+}
+
+.map-information p {
+  font-size: 12px !important;
+}
+
+.map-information a {
+  font-size: 12px !important;
+}
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 600px) {
+  h1 {
+    font-size: 30px !important;
+  }
+
+  h2 {
+    font-size: 24px !important;
+  }
+
+  h3 {
+    font-size: 18px !important;
+  }
+
+  .navigation-links > a,
+  .navigation-links > button {
+    font-size: 14px !important;
+  }
+
+  .book-title {
+    font-size: 15px !important;
+  }
+
+  .account-information,
+  .login-information {
+    display: none;
+  }
+}

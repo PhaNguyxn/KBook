@@ -10,15 +10,12 @@ import ReaderAccountSidebar from
   "@/components/account/ReaderAccountSidebar.vue";
 
 import {
-  borrowRequestApi,
-} from "@/api/borrowRequestApi";
+  borrowApi,
+} from "@/api/borrowApi";
 
 const loading = ref(false);
-const cancellingId = ref("");
 const errorMessage = ref("");
-const successMessage = ref("");
-
-const requests = ref([]);
+const history = ref([]);
 const expandedId = ref("");
 
 const filters = reactive({
@@ -38,7 +35,7 @@ const serverUrl = String(
     "http://localhost:3000",
 ).replace(/\/+$/, "");
 
-function extractRequests(response) {
+function extractHistory(response) {
   const payload =
     response?.data?.data ??
     response?.data ??
@@ -46,15 +43,16 @@ function extractRequests(response) {
 
   if (Array.isArray(payload)) {
     return {
-      requests: payload,
+      history: payload,
       pagination: {},
+      summary: {},
     };
   }
 
   return {
-    requests:
-      payload.requests ||
-      payload.borrowRequests ||
+    history:
+      payload.history ||
+      payload.borrows ||
       payload.items ||
       payload.docs ||
       [],
@@ -63,69 +61,18 @@ function extractRequests(response) {
       payload.pagination ||
       payload.pageInfo ||
       {},
+
+    summary:
+      payload.summary || {},
   };
 }
 
-function normalizeStatus(value) {
-  return String(
-    value || "pending",
-  ).toLowerCase();
-}
-
-function statusInfo(status) {
-  const normalized =
-    normalizeStatus(status);
-
-  if (
-    [
-      "approved",
-      "accepted",
-      "đã duyệt",
-    ].includes(normalized)
-  ) {
-    return {
-      label: "Đã duyệt",
-      className: "approved",
-      icon:
-        "bi bi-check-circle-fill",
-    };
-  }
-
-  if (
-    [
-      "rejected",
-      "declined",
-      "từ chối",
-    ].includes(normalized)
-  ) {
-    return {
-      label: "Từ chối",
-      className: "rejected",
-      icon:
-        "bi bi-x-circle-fill",
-    };
-  }
-
-  if (
-    [
-      "cancelled",
-      "canceled",
-      "đã hủy",
-    ].includes(normalized)
-  ) {
-    return {
-      label: "Đã hủy",
-      className: "cancelled",
-      icon: "bi bi-slash-circle",
-    };
-  }
-
-  return {
-    label: "Chờ duyệt",
-    className: "pending",
-    icon: "bi bi-clock-fill",
-  };
-}
+const backendSummary = reactive({
+  total: 0,
+  borrowing: 0,
+  returned: 0,
+  overdue: 0,
+});
 
 function formatDate(value) {
   if (!value) {
@@ -150,6 +97,62 @@ function formatDate(value) {
       year: "numeric",
     },
   ).format(date);
+}
+
+function isOverdue(item) {
+  if (item.isOverdue === true) {
+    return true;
+  }
+
+  const status = String(
+    item.status || "",
+  ).toLowerCase();
+
+  return (
+    [
+      "borrowing",
+      "đang mượn",
+    ].includes(status) &&
+    item.dueDate &&
+    new Date(item.dueDate) <
+      new Date()
+  );
+}
+
+function statusInfo(item) {
+  if (isOverdue(item)) {
+    return {
+      label: "Quá hạn",
+      className: "overdue",
+      icon:
+        "bi bi-exclamation-triangle-fill",
+    };
+  }
+
+  const status = String(
+    item.status || "",
+  ).toLowerCase();
+
+  if (
+    [
+      "returned",
+      "đã trả",
+      "completed",
+    ].includes(status)
+  ) {
+    return {
+      label: "Đã trả",
+      className: "returned",
+      icon:
+        "bi bi-check-circle-fill",
+    };
+  }
+
+  return {
+    label: "Đang mượn",
+    className: "borrowing",
+    icon: "bi bi-book-fill",
+  };
 }
 
 function getBook(item) {
@@ -187,10 +190,21 @@ function getImageUrl(image) {
   )}`;
 }
 
-function totalBooks(request) {
+function totalBooks(borrow) {
+  if (
+    Number.isFinite(
+      Number(borrow.totalBooks),
+    ) &&
+    Number(borrow.totalBooks) > 0
+  ) {
+    return Number(
+      borrow.totalBooks,
+    );
+  }
+
   return (
-    request.items ||
-    request.books ||
+    borrow.items ||
+    borrow.details ||
     []
   ).reduce(
     (total, item) =>
@@ -201,48 +215,48 @@ function totalBooks(request) {
 }
 
 const summary = computed(() => {
+  if (
+    backendSummary.total ||
+    backendSummary.borrowing ||
+    backendSummary.returned ||
+    backendSummary.overdue
+  ) {
+    return backendSummary;
+  }
+
   const result = {
-    total: requests.value.length,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
+    total: history.value.length,
+    borrowing: 0,
+    returned: 0,
+    overdue: 0,
   };
 
-  requests.value.forEach(
-    (request) => {
-      const status =
-        statusInfo(
-          request.status,
-        ).className;
+  history.value.forEach((item) => {
+    const status =
+      statusInfo(item).className;
 
-      if (status === "pending") {
-        result.pending += 1;
-      }
-
-      if (status === "approved") {
-        result.approved += 1;
-      }
-
-      if (
-        status === "rejected" ||
-        status === "cancelled"
-      ) {
-        result.rejected += 1;
-      }
-    },
-  );
+    if (status === "overdue") {
+      result.overdue += 1;
+    } else if (
+      status === "returned"
+    ) {
+      result.returned += 1;
+    } else {
+      result.borrowing += 1;
+    }
+  });
 
   return result;
 });
 
-async function loadRequests() {
+async function loadHistory() {
   loading.value = true;
   errorMessage.value = "";
 
   try {
     const response =
-      await borrowRequestApi
-        .getMyRequests({
+      await borrowApi
+        .getMyHistory({
           page: pagination.page,
           limit: pagination.limit,
 
@@ -262,29 +276,34 @@ async function loadRequests() {
         });
 
     const result =
-      extractRequests(response);
+      extractHistory(response);
 
-    requests.value =
-      result.requests;
+    history.value =
+      result.history;
 
     Object.assign(
       pagination,
       result.pagination,
     );
 
+    Object.assign(
+      backendSummary,
+      result.summary,
+    );
+
     if (
       !pagination.totalPages &&
-      requests.value.length
+      history.value.length
     ) {
       pagination.total =
-        requests.value.length;
+        history.value.length;
 
       pagination.totalPages = 1;
     }
   } catch (error) {
     errorMessage.value =
       error?.response?.data?.message ||
-      "Không thể tải danh sách yêu cầu mượn";
+      "Không thể tải lịch sử mượn sách";
   } finally {
     loading.value = false;
   }
@@ -292,14 +311,14 @@ async function loadRequests() {
 
 function applyFilters() {
   pagination.page = 1;
-  loadRequests();
+  loadHistory();
 }
 
 function clearFilters() {
   filters.keyword = "";
   filters.status = "";
   pagination.page = 1;
-  loadRequests();
+  loadHistory();
 }
 
 function changePage(page) {
@@ -311,69 +330,21 @@ function changePage(page) {
   }
 
   pagination.page = page;
-  loadRequests();
+  loadHistory();
 }
 
-function toggleRequest(id) {
+function toggleHistory(id) {
   expandedId.value =
     expandedId.value === id
       ? ""
       : id;
 }
 
-async function cancelRequest(request) {
-  const info =
-    statusInfo(request.status);
-
-  if (
-    info.className !== "pending"
-  ) {
-    return;
-  }
-
-  const confirmed =
-    window.confirm(
-      `Bạn có chắc muốn hủy yêu cầu ${
-        request.requestCode ||
-        request.borrowRequestCode ||
-        ""
-      }?`,
-    );
-
-  if (!confirmed) {
-    return;
-  }
-
-  cancellingId.value =
-    request._id;
-
-  errorMessage.value = "";
-  successMessage.value = "";
-
-  try {
-    await borrowRequestApi
-      .cancelMyRequest(
-        request._id,
-      );
-
-    successMessage.value =
-      "Hủy yêu cầu mượn thành công";
-
-    await loadRequests();
-  } catch (error) {
-    errorMessage.value =
-      error?.response?.data?.message ||
-      "Không thể hủy yêu cầu mượn";
-  } finally {
-    cancellingId.value = "";
-  }
-}
-
-onMounted(loadRequests);
+onMounted(loadHistory);
 </script>
 
 <template>
-  <div class="request-page">
+  <div class="history-page">
     <section class="account-banner">
       <div class="reader-container">
         <div class="breadcrumb">
@@ -387,14 +358,14 @@ onMounted(loadRequests);
 
           <i class="bi bi-chevron-right" />
 
-          <span>Yêu cầu mượn</span>
+          <span>Lịch sử mượn</span>
         </div>
 
-        <h1>Yêu cầu mượn sách</h1>
+        <h1>Lịch sử mượn sách</h1>
 
         <p>
-          Theo dõi trạng thái xử lý các yêu cầu
-          mượn sách đã gửi đến thư viện.
+          Theo dõi sách đang mượn, đã trả và
+          các phiếu mượn quá hạn.
         </p>
       </div>
     </section>
@@ -403,51 +374,61 @@ onMounted(loadRequests);
       <div class="reader-container account-layout">
         <ReaderAccountSidebar />
 
-        <main class="request-content">
+        <main class="history-content">
           <div class="summary-grid">
             <article>
               <span class="summary-icon total">
-                <i class="bi bi-journals" />
+                <i
+                  class="bi bi-clock-history"
+                />
               </span>
 
               <div>
-                <small>Tổng yêu cầu</small>
+                <small>Tổng phiếu mượn</small>
                 <strong>{{ summary.total }}</strong>
               </div>
             </article>
 
             <article>
-              <span class="summary-icon pending">
-                <i class="bi bi-clock" />
+              <span class="summary-icon borrowing">
+                <i class="bi bi-book" />
               </span>
 
               <div>
-                <small>Chờ duyệt</small>
-                <strong>{{ summary.pending }}</strong>
+                <small>Đang mượn</small>
+                <strong>
+                  {{ summary.borrowing }}
+                </strong>
               </div>
             </article>
 
             <article>
-              <span class="summary-icon approved">
+              <span class="summary-icon returned">
                 <i
                   class="bi bi-check-circle"
                 />
               </span>
 
               <div>
-                <small>Đã duyệt</small>
-                <strong>{{ summary.approved }}</strong>
+                <small>Đã trả</small>
+                <strong>
+                  {{ summary.returned }}
+                </strong>
               </div>
             </article>
 
             <article>
-              <span class="summary-icon rejected">
-                <i class="bi bi-x-circle" />
+              <span class="summary-icon overdue">
+                <i
+                  class="bi bi-exclamation-triangle"
+                />
               </span>
 
               <div>
-                <small>Từ chối/Đã hủy</small>
-                <strong>{{ summary.rejected }}</strong>
+                <small>Quá hạn</small>
+                <strong>
+                  {{ summary.overdue }}
+                </strong>
               </div>
             </article>
           </div>
@@ -463,18 +444,7 @@ onMounted(loadRequests);
             {{ errorMessage }}
           </div>
 
-          <div
-            v-if="successMessage"
-            class="page-alert success"
-          >
-            <i
-              class="bi bi-check-circle-fill"
-            />
-
-            {{ successMessage }}
-          </div>
-
-          <div class="request-toolbar">
+          <div class="history-toolbar">
             <form
               @submit.prevent="applyFilters"
             >
@@ -484,7 +454,7 @@ onMounted(loadRequests);
                 <input
                   v-model="filters.keyword"
                   type="search"
-                  placeholder="Tìm theo mã yêu cầu..."
+                  placeholder="Tìm theo mã phiếu mượn..."
                 />
               </div>
 
@@ -496,20 +466,16 @@ onMounted(loadRequests);
                   Tất cả trạng thái
                 </option>
 
-                <option value="pending">
-                  Chờ duyệt
+                <option value="borrowing">
+                  Đang mượn
                 </option>
 
-                <option value="approved">
-                  Đã duyệt
+                <option value="returned">
+                  Đã trả
                 </option>
 
-                <option value="rejected">
-                  Từ chối
-                </option>
-
-                <option value="cancelled">
-                  Đã hủy
+                <option value="overdue">
+                  Quá hạn
                 </option>
               </select>
 
@@ -528,17 +494,6 @@ onMounted(loadRequests);
                 Xóa lọc
               </button>
             </form>
-
-            <RouterLink
-              :to="{
-                name: 'reader-books',
-              }"
-              class="create-request-link"
-            >
-              <i class="bi bi-plus-lg" />
-
-              Chọn sách mượn
-            </RouterLink>
           </div>
 
           <div
@@ -547,31 +502,28 @@ onMounted(loadRequests);
           >
             <span class="loading-spinner" />
 
-            <p>
-              Đang tải danh sách yêu cầu...
-            </p>
+            <p>Đang tải lịch sử mượn...</p>
           </div>
 
           <div
-            v-else-if="requests.length"
-            class="request-list"
+            v-else-if="history.length"
+            class="history-list"
           >
             <article
-              v-for="request in requests"
-              :key="request._id"
-              class="request-card"
+              v-for="borrow in history"
+              :key="borrow._id"
+              class="history-card"
             >
-              <header class="request-header">
+              <header class="history-header">
                 <div>
-                  <small>Mã yêu cầu</small>
+                  <small>Mã phiếu mượn</small>
 
                   <strong>
                     {{
-                      request.requestCode ||
-                      request.borrowRequestCode ||
-                      request.code ||
-                      `YC-${String(
-                        request._id,
+                      borrow.borrowCode ||
+                      borrow.code ||
+                      `PM-${String(
+                        borrow._id,
                       ).slice(-6)}`
                     }}
                   </strong>
@@ -580,61 +532,50 @@ onMounted(loadRequests);
                 <span
                   class="status-badge"
                   :class="
-                    statusInfo(
-                      request.status,
-                    ).className
+                    statusInfo(borrow)
+                      .className
                   "
                 >
                   <i
                     :class="
-                      statusInfo(
-                        request.status,
-                      ).icon
+                      statusInfo(borrow).icon
                     "
                   />
 
                   {{
-                    statusInfo(
-                      request.status,
-                    ).label
+                    statusInfo(borrow).label
                   }}
                 </span>
               </header>
 
-              <div class="request-overview">
+              <div class="history-overview">
                 <div>
-                  <small>Ngày gửi</small>
+                  <small>Ngày mượn</small>
 
                   <strong>
                     {{
                       formatDate(
-                        request.createdAt ||
-                        request.requestDate,
+                        borrow.borrowDate,
                       )
                     }}
                   </strong>
                 </div>
 
                 <div>
-                  <small>Ngày mượn dự kiến</small>
+                  <small>Hạn trả</small>
 
-                  <strong>
-                    {{
-                      formatDate(
-                        request.borrowDate ||
-                        request.expectedBorrowDate,
-                      )
-                    }}
-                  </strong>
+                  <strong :class="{ 'overdue-text': isOverdue(borrow) }">
+                    {{ formatDate(borrow.dueDate) }}
+                    </strong>
                 </div>
 
                 <div>
-                  <small>Ngày trả dự kiến</small>
+                  <small>Ngày trả</small>
 
                   <strong>
                     {{
                       formatDate(
-                        request.dueDate,
+                        borrow.returnDate,
                       )
                     }}
                   </strong>
@@ -644,7 +585,7 @@ onMounted(loadRequests);
                   <small>Số lượng sách</small>
 
                   <strong>
-                    {{ totalBooks(request) }}
+                    {{ totalBooks(borrow) }}
                     quyển
                   </strong>
                 </div>
@@ -653,14 +594,14 @@ onMounted(loadRequests);
                   type="button"
                   class="detail-button"
                   @click="
-                    toggleRequest(
-                      request._id,
+                    toggleHistory(
+                      borrow._id,
                     )
                   "
                 >
                   {{
                     expandedId ===
-                    request._id
+                    borrow._id
                       ? "Thu gọn"
                       : "Xem chi tiết"
                   }}
@@ -668,7 +609,7 @@ onMounted(loadRequests);
                   <i
                     :class="
                       expandedId ===
-                      request._id
+                      borrow._id
                         ? 'bi bi-chevron-up'
                         : 'bi bi-chevron-down'
                     "
@@ -680,25 +621,23 @@ onMounted(loadRequests);
                 <div
                   v-if="
                     expandedId ===
-                    request._id
+                    borrow._id
                   "
-                  class="request-details"
+                  class="history-details"
                 >
-                  <div class="request-books">
-                    <h3>
-                      Danh sách sách yêu cầu
-                    </h3>
+                  <div class="borrowed-books">
+                    <h3>Danh sách sách</h3>
 
                     <div
                       v-for="item in
-                        request.items ||
-                        request.books ||
+                        borrow.items ||
+                        borrow.details ||
                         []"
                       :key="
                         item._id ||
                         getBook(item)._id
                       "
-                      class="request-book"
+                      class="borrowed-book"
                     >
                       <div class="book-cover">
                         <img
@@ -756,60 +695,47 @@ onMounted(loadRequests);
                     </div>
                   </div>
 
-                  <aside class="request-note">
-                    <h3>Thông tin xử lý</h3>
+                  <aside class="borrow-information">
+                    <h3>Thông tin phiếu mượn</h3>
 
                     <div>
-                      <span>Ghi chú độc giả</span>
+                      <span>Nhân viên xử lý</span>
+
+                      <strong>
+                        {{
+                          borrow.employee
+                            ?.fullName ||
+                          borrow.employeeName ||
+                          "Đang cập nhật"
+                        }}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Ghi chú</span>
 
                       <p>
                         {{
-                          request.note ||
+                          borrow.note ||
                           "Không có ghi chú"
                         }}
                       </p>
                     </div>
 
                     <div
-                      v-if="
-                        request.rejectionReason ||
-                        request.reason
-                      "
+                      v-if="isOverdue(borrow)"
+                      class="overdue-notice"
                     >
-                      <span>Lý do từ chối</span>
+                      <i
+                        class="bi bi-exclamation-triangle-fill"
+                      />
 
-                      <p class="rejection-reason">
-                        {{
-                          request.rejectionReason ||
-                          request.reason
-                        }}
-                      </p>
+                      <span>
+                        Phiếu mượn đã quá hạn.
+                        Vui lòng liên hệ thư viện
+                        để trả hoặc gia hạn sách.
+                      </span>
                     </div>
-
-                    <button
-                      v-if="
-                        statusInfo(
-                          request.status,
-                        ).className ===
-                        'pending'
-                      "
-                      type="button"
-                      class="cancel-request-button"
-                      :disabled="
-                        cancellingId ===
-                        request._id
-                      "
-                      @click="
-                        cancelRequest(request)
-                      "
-                    >
-                      {{
-                        cancellingId ===
-                        request._id
-                          ? "Đang hủy..."
-                          : "Hủy yêu cầu"
-                      }}
-                    </button>
                   </aside>
                 </div>
               </Transition>
@@ -821,14 +747,16 @@ onMounted(loadRequests);
             class="empty-state"
           >
             <span>
-              <i class="bi bi-send-check" />
+              <i
+                class="bi bi-clock-history"
+              />
             </span>
 
-            <h2>Chưa có yêu cầu mượn</h2>
+            <h2>Chưa có lịch sử mượn</h2>
 
             <p>
-              Lựa chọn sách trong kho và gửi
-              yêu cầu mượn đến thư viện.
+              Các phiếu mượn đã được duyệt sẽ
+              xuất hiện tại đây.
             </p>
 
             <RouterLink
@@ -908,7 +836,7 @@ onMounted(loadRequests);
     linear-gradient(
       135deg,
       #eaf7ef,
-      #fff4e7
+      #edf3ff
     );
 }
 
@@ -949,7 +877,7 @@ onMounted(loadRequests);
   gap: 25px;
 }
 
-.request-content {
+.history-content {
   min-width: 0;
 }
 
@@ -986,17 +914,17 @@ onMounted(loadRequests);
   color: #315db2;
 }
 
-.summary-icon.pending {
-  background: #fff3d8;
-  color: #b47b09;
+.summary-icon.borrowing {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
-.summary-icon.approved {
+.summary-icon.returned {
   background: #dcfce7;
   color: #15803d;
 }
 
-.summary-icon.rejected {
+.summary-icon.overdue {
   background: #fee2e2;
   color: #b91c1c;
 }
@@ -1034,31 +962,19 @@ onMounted(loadRequests);
   color: #b91c1c;
 }
 
-.page-alert.success {
-  border-color: #a7f3d0;
-  background: #ecfdf5;
-  color: #047857;
-}
-
-.request-toolbar {
+.history-toolbar {
   margin: 18px 0;
   padding: 13px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 13px;
   border: 1px solid
     var(--reader-border);
   border-radius: 13px;
   background: #fff;
 }
 
-.request-toolbar form {
-  min-width: 0;
+.history-toolbar form {
   display: flex;
   align-items: center;
   gap: 9px;
-  flex: 1;
 }
 
 .toolbar-search {
@@ -1077,7 +993,7 @@ onMounted(loadRequests);
 }
 
 .toolbar-search input,
-.request-toolbar select {
+.history-toolbar select {
   height: 38px;
   border: 1px solid
     var(--reader-border);
@@ -1090,25 +1006,19 @@ onMounted(loadRequests);
   padding: 0 10px 0 34px;
 }
 
-.request-toolbar select {
+.history-toolbar select {
   padding: 0 10px;
   background: #fff;
   font-size: 9px;
 }
 
 .filter-button,
-.clear-button,
-.create-request-link {
+.clear-button {
   min-height: 38px;
   padding: 0 13px;
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  gap: 7px;
   border-radius: 8px;
   font-size: 9px;
   font-weight: 900;
-  white-space: nowrap;
 }
 
 .filter-button {
@@ -1122,11 +1032,6 @@ onMounted(loadRequests);
     var(--reader-border);
   background: #fff;
   color: var(--reader-text);
-}
-
-.create-request-link {
-  background: var(--reader-accent);
-  color: #fff;
 }
 
 .page-loading {
@@ -1148,7 +1053,7 @@ onMounted(loadRequests);
     reader-spin 0.8s linear infinite;
 }
 
-.request-card {
+.history-card {
   margin-bottom: 15px;
   overflow: hidden;
   border: 1px solid
@@ -1160,7 +1065,7 @@ onMounted(loadRequests);
     rgb(15 23 42 / 4%);
 }
 
-.request-header {
+.history-header {
   min-height: 63px;
   padding: 0 18px;
   display: flex;
@@ -1170,17 +1075,17 @@ onMounted(loadRequests);
     var(--reader-border);
 }
 
-.request-header small,
-.request-header strong {
+.history-header small,
+.history-header strong {
   display: block;
 }
 
-.request-header small {
+.history-header small {
   color: var(--reader-muted);
   font-size: 8px;
 }
 
-.request-header strong {
+.history-header strong {
   margin-top: 4px;
   color: var(--reader-text);
   font-size: 11px;
@@ -1196,27 +1101,22 @@ onMounted(loadRequests);
   font-weight: 900;
 }
 
-.status-badge.pending {
-  background: #fff3d8;
-  color: #a96f04;
+.status-badge.borrowing {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
-.status-badge.approved {
+.status-badge.returned {
   background: #dcfce7;
   color: #15803d;
 }
 
-.status-badge.rejected {
+.status-badge.overdue {
   background: #fee2e2;
   color: #b91c1c;
 }
 
-.status-badge.cancelled {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-.request-overview {
+.history-overview {
   min-height: 82px;
   padding: 14px 18px;
   display: grid;
@@ -1226,20 +1126,24 @@ onMounted(loadRequests);
   gap: 13px;
 }
 
-.request-overview small,
-.request-overview strong {
+.history-overview small,
+.history-overview strong {
   display: block;
 }
 
-.request-overview small {
+.history-overview small {
   color: var(--reader-muted);
   font-size: 8px;
 }
 
-.request-overview strong {
+.history-overview strong {
   margin-top: 5px;
   color: var(--reader-text);
   font-size: 9px;
+}
+
+.overdue-text {
+  color: #dc2626 !important;
 }
 
 .detail-button {
@@ -1258,25 +1162,25 @@ onMounted(loadRequests);
   font-weight: 900;
 }
 
-.request-details {
+.history-details {
   padding: 18px;
   display: grid;
   grid-template-columns:
-    minmax(0, 1fr) 260px;
+    minmax(0, 1fr) 270px;
   gap: 20px;
   border-top: 1px solid
     var(--reader-border);
   background: #fafcfb;
 }
 
-.request-books h3,
-.request-note h3 {
+.borrowed-books h3,
+.borrow-information h3 {
   margin: 0 0 13px;
   color: var(--reader-text);
   font-size: 11px;
 }
 
-.request-book {
+.borrowed-book {
   margin-top: 9px;
   padding: 10px;
   display: flex;
@@ -1306,31 +1210,31 @@ onMounted(loadRequests);
   object-fit: contain;
 }
 
-.request-book strong,
-.request-book span,
-.request-book small {
+.borrowed-book strong,
+.borrowed-book span,
+.borrowed-book small {
   display: block;
 }
 
-.request-book strong {
+.borrowed-book strong {
   color: var(--reader-text);
   font-size: 9px;
 }
 
-.request-book span {
+.borrowed-book span {
   margin-top: 4px;
   color: var(--reader-muted);
   font-size: 8px;
 }
 
-.request-book small {
+.borrowed-book small {
   margin-top: 6px;
   color: var(--reader-primary);
   font-size: 7px;
   font-weight: 900;
 }
 
-.request-note {
+.borrow-information {
   padding: 15px;
   border: 1px solid
     var(--reader-border);
@@ -1338,35 +1242,39 @@ onMounted(loadRequests);
   background: #fff;
 }
 
-.request-note span {
+.borrow-information > div {
+  margin-top: 13px;
+}
+
+.borrow-information span {
   color: var(--reader-muted);
   font-size: 8px;
 }
 
-.request-note p {
-  margin: 6px 0 14px;
+.borrow-information strong {
+  margin-top: 5px;
+  display: block;
+  color: var(--reader-text);
+  font-size: 9px;
+}
+
+.borrow-information p {
+  margin: 5px 0 0;
   color: var(--reader-text);
   font-size: 9px;
   line-height: 1.6;
 }
 
-.rejection-reason {
-  color: #b91c1c !important;
-}
-
-.cancel-request-button {
-  width: 100%;
-  min-height: 36px;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  background: #fff;
-  color: #dc2626;
+.overdue-notice {
+  padding: 11px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border-radius: 9px;
+  background: #fef2f2;
+  color: #b91c1c;
   font-size: 8px;
-  font-weight: 900;
-}
-
-.cancel-request-button:disabled {
-  opacity: 0.6;
+  line-height: 1.6;
 }
 
 .empty-state {
@@ -1460,22 +1368,9 @@ onMounted(loadRequests);
       repeat(2, 1fr);
   }
 
-  .request-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .request-toolbar form {
-    flex-wrap: wrap;
-  }
-
-  .request-overview {
+  .history-overview {
     grid-template-columns:
       repeat(2, 1fr);
-  }
-
-  .detail-button {
-    width: 130px;
   }
 }
 
@@ -1484,7 +1379,7 @@ onMounted(loadRequests);
     grid-template-columns: 1fr;
   }
 
-  .request-details {
+  .history-details {
     grid-template-columns: 1fr;
   }
 }
@@ -1494,12 +1389,12 @@ onMounted(loadRequests);
     grid-template-columns: 1fr;
   }
 
-  .request-toolbar form {
+  .history-toolbar form {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .request-overview {
+  .history-overview {
     grid-template-columns: 1fr;
   }
 }

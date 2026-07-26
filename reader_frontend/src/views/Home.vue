@@ -1,5 +1,6 @@
 <script setup>
 import {
+  computed,
   onMounted,
   ref,
 } from "vue";
@@ -18,103 +19,399 @@ import {
 const router = useRouter();
 
 const loading = ref(false);
+const errorMessage = ref("");
 
+const allBooks = ref([]);
 const featuredBooks = ref([]);
 const newestBooks = ref([]);
+const categories = ref([]);
 
-const categories = [
-  {
-    name: "Văn học",
-    icon: "bi-book",
-    count: "1.245+ sách",
-    className: "blue",
-  },
-  {
-    name: "Kinh tế - Kỹ năng",
-    icon: "bi-graph-up-arrow",
-    count: "1.032+ sách",
-    className: "yellow",
-  },
-  {
-    name: "Tâm lý",
-    icon: "bi-lightbulb",
-    count: "842+ sách",
-    className: "green",
-  },
-  {
-    name: "Thiếu nhi",
-    icon: "bi-balloon",
-    count: "1.108+ sách",
-    className: "orange",
-  },
-  {
-    name: "Khoa học",
-    icon: "bi-flask",
-    count: "512+ sách",
-    className: "mint",
-  },
-  {
-    name: "Lịch sử",
-    icon: "bi-bank",
-    count: "420+ sách",
-    className: "brown",
-  },
-  {
-    name: "Ngoại ngữ",
-    icon: "bi-translate",
-    count: "634+ sách",
-    className: "cyan",
-  },
-  {
-    name: "Sách mới",
-    icon: "bi-stars",
-    count: "265+ sách",
-    className: "pink",
-  },
+const serverUrl = String(
+  import.meta.env.VITE_SERVER_URL ||
+    "http://localhost:3000",
+).replace(/\/+$/, "");
+
+const categoryColors = [
+  "blue",
+  "yellow",
+  "green",
+  "orange",
+  "mint",
+  "brown",
+  "cyan",
+  "pink",
 ];
 
-function getData(response) {
+
+function extractBooks(response) {
   const payload =
     response?.data?.data ??
     response?.data ??
     {};
 
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
   return (
     payload.books ||
     payload.items ||
     payload.results ||
-    (Array.isArray(payload)
-      ? payload
-      : [])
+    payload.docs ||
+    []
   );
 }
 
+
+function getBookImage(book) {
+  const image =
+    book?.image ||
+    book?.img ||
+    book?.img1 ||
+    "";
+
+  if (!image) {
+    return "";
+  }
+
+  const normalizedImage =
+    String(image).replace(
+      /\\/g,
+      "/",
+    );
+
+  if (
+    normalizedImage.startsWith(
+      "http://",
+    ) ||
+    normalizedImage.startsWith(
+      "https://",
+    ) ||
+    normalizedImage.startsWith(
+      "data:",
+    ) ||
+    normalizedImage.startsWith(
+      "blob:",
+    )
+  ) {
+    return normalizedImage;
+  }
+
+  return `${serverUrl}/${normalizedImage.replace(
+    /^\/+/,
+    "",
+  )}`;
+}
+
+function getCategoryIcon(name = "") {
+  const normalizedName =
+    String(name).toLowerCase();
+
+  if (
+    normalizedName.includes(
+      "văn học",
+    ) ||
+    normalizedName.includes(
+      "tiểu thuyết",
+    )
+  ) {
+    return "bi-book";
+  }
+
+  if (
+    normalizedName.includes(
+      "kinh tế",
+    ) ||
+    normalizedName.includes(
+      "kỹ năng",
+    ) ||
+    normalizedName.includes(
+      "quản trị",
+    )
+  ) {
+    return "bi-graph-up-arrow";
+  }
+
+  if (
+    normalizedName.includes(
+      "tâm lý",
+    ) ||
+    normalizedName.includes(
+      "phát triển",
+    )
+  ) {
+    return "bi-lightbulb";
+  }
+
+  if (
+    normalizedName.includes(
+      "thiếu nhi",
+    ) ||
+    normalizedName.includes(
+      "truyện tranh",
+    )
+  ) {
+    return "bi-balloon";
+  }
+
+  if (
+    normalizedName.includes(
+      "khoa học",
+    ) ||
+    normalizedName.includes(
+      "công nghệ",
+    ) ||
+    normalizedName.includes(
+      "lập trình",
+    )
+  ) {
+    return "bi-cpu";
+  }
+
+  if (
+    normalizedName.includes(
+      "lịch sử",
+    ) ||
+    normalizedName.includes(
+      "địa lý",
+    )
+  ) {
+    return "bi-bank";
+  }
+
+  if (
+    normalizedName.includes(
+      "ngoại ngữ",
+    ) ||
+    normalizedName.includes(
+      "tiếng anh",
+    )
+  ) {
+    return "bi-translate";
+  }
+
+  if (
+    normalizedName.includes(
+      "giáo trình",
+    ) ||
+    normalizedName.includes(
+      "học tập",
+    )
+  ) {
+    return "bi-mortarboard";
+  }
+
+  return "bi-bookshelf";
+}
+
+function buildCategories(books) {
+  const categoryMap =
+    new Map();
+
+  books.forEach((book) => {
+    const categoryName =
+      String(
+        book.category ||
+          "Chưa phân loại",
+      ).trim();
+
+    if (
+      !categoryMap.has(
+        categoryName,
+      )
+    ) {
+      categoryMap.set(
+        categoryName,
+        {
+          name: categoryName,
+          count: 0,
+          availableCopies: 0,
+        },
+      );
+    }
+
+    const category =
+      categoryMap.get(
+        categoryName,
+      );
+
+    category.count += 1;
+
+    category.availableCopies +=
+      Number(
+        book.available || 0,
+      );
+  });
+
+  return Array.from(
+    categoryMap.values(),
+  )
+    .sort(
+      (firstCategory, secondCategory) =>
+        secondCategory.count -
+        firstCategory.count,
+    )
+    .map(
+      (category, index) => ({
+        ...category,
+
+        icon:
+          getCategoryIcon(
+            category.name,
+          ),
+
+        className:
+          categoryColors[
+            index %
+              categoryColors.length
+          ],
+      }),
+    );
+}
+
+
+const totalBooks = computed(() => {
+  return allBooks.value.length;
+});
+
+const totalAvailableCopies =
+  computed(() => {
+    return allBooks.value.reduce(
+      (total, book) =>
+        total +
+        Number(
+          book.available || 0,
+        ),
+      0,
+    );
+  });
+
+const availableTitles = computed(() => {
+  return allBooks.value.filter(
+    (book) =>
+      Number(
+        book.available || 0,
+      ) > 0,
+  ).length;
+});
+
+const heroBooks = computed(() => {
+  return featuredBooks.value.slice(
+    0,
+    4,
+  );
+});
+
+
 async function loadHomeData() {
   loading.value = true;
+  errorMessage.value = "";
 
   try {
-    const [
-      featuredResponse,
-      newestResponse,
-    ] = await Promise.all([
-      bookApi.getFeatured(6),
-      bookApi.getNewest(6),
-    ]);
+    const response =
+      await bookApi.getAll({
+        page: 1,
+        limit: 1000,
+      });
+
+    const books =
+      extractBooks(response)
+        .filter(
+          (book) =>
+            book &&
+            book.status !== false,
+        )
+        .map((book) => ({
+          ...book,
+
+          quantity:
+            Number(
+              book.quantity || 0,
+            ),
+
+          available:
+            Number(
+              book.available || 0,
+            ),
+
+          publishYear:
+            Number(
+              book.publishYear || 0,
+            ),
+        }));
+
+    allBooks.value = books;
 
     featuredBooks.value =
-      getData(
-        featuredResponse,
-      );
+      [...books]
+        .filter(
+          (book) =>
+            book.available > 0,
+        )
+        .sort((firstBook, secondBook) => {
+          if (
+            secondBook.available !==
+            firstBook.available
+          ) {
+            return (
+              secondBook.available -
+              firstBook.available
+            );
+          }
+
+          return (
+            secondBook.publishYear -
+            firstBook.publishYear
+          );
+        })
+        .slice(0, 8);
 
     newestBooks.value =
-      getData(
-        newestResponse,
-      );
+      [...books]
+        .sort((firstBook, secondBook) => {
+          if (
+            secondBook.publishYear !==
+            firstBook.publishYear
+          ) {
+            return (
+              secondBook.publishYear -
+              firstBook.publishYear
+            );
+          }
+
+          const secondDate =
+            new Date(
+              secondBook.createdAt ||
+                secondBook.updatedAt ||
+                0,
+            ).getTime();
+
+          const firstDate =
+            new Date(
+              firstBook.createdAt ||
+                firstBook.updatedAt ||
+                0,
+            ).getTime();
+
+          return (
+            secondDate -
+            firstDate
+          );
+        })
+        .slice(0, 8);
+
+    categories.value =
+      buildCategories(books);
   } catch (error) {
     console.error(
       "Load home data error:",
       error,
     );
+
+    errorMessage.value =
+      error?.response?.data
+        ?.message ||
+      "Không thể tải dữ liệu sách";
   } finally {
     loading.value = false;
   }
@@ -140,7 +437,7 @@ onMounted(() => {
         <div class="hero-banner">
           <div class="hero-content">
             <span class="hero-label">
-              Thư viện trực tuyến
+              Thư viện trực tuyến KBook
             </span>
 
             <h1>
@@ -150,9 +447,10 @@ onMounted(() => {
             </h1>
 
             <p>
-              Hàng ngàn đầu sách hay đang chờ
-              bạn khám phá. Mượn online, quản lý
-              lịch mượn và theo dõi hạn trả.
+              Khám phá {{ totalBooks }} đầu sách,
+              {{ categories.length }} thể loại và
+              {{ totalAvailableCopies }} bản sách
+              đang có sẵn trong thư viện.
             </p>
 
             <button
@@ -167,80 +465,118 @@ onMounted(() => {
               />
             </button>
 
-            <div class="hero-benefits">
+            <div class="hero-statistics">
               <div>
-                <i
-                  class="bi bi-shield-check"
-                />
+                <strong>
+                  {{ totalBooks }}
+                </strong>
 
-                <span>
-                  <strong>
-                    Mượn dễ dàng
-                  </strong>
-
-                  <small>
-                    Thủ tục nhanh gọn
-                  </small>
-                </span>
+                <span>Đầu sách</span>
               </div>
 
               <div>
-                <i class="bi bi-clock" />
+                <strong>
+                  {{ availableTitles }}
+                </strong>
 
-                <span>
-                  <strong>
-                    Quản lý trực tuyến
-                  </strong>
-
-                  <small>
-                    Theo dõi 24/7
-                  </small>
-                </span>
+                <span>Đầu sách còn sẵn</span>
               </div>
 
               <div>
-                <i class="bi bi-bell" />
+                <strong>
+                  {{ categories.length }}
+                </strong>
 
-                <span>
-                  <strong>
-                    Nhắc hạn trả
-                  </strong>
-
-                  <small>
-                    Thông báo tự động
-                  </small>
-                </span>
+                <span>Danh mục</span>
               </div>
             </div>
           </div>
 
           <div class="hero-visual">
-            <div class="hero-book book-one">
-              SAPIENS
-            </div>
+            <template
+              v-if="heroBooks.length"
+            >
+              <button
+                v-for="(
+                  book,
+                  index
+                ) in heroBooks"
+                :key="book._id"
+                type="button"
+                class="hero-cover"
+                :class="
+                  `hero-cover-${index + 1}`
+                "
+                :title="book.title"
+                @click="
+                  router.push({
+                    name:
+                      'reader-book-detail',
 
-            <div class="hero-book book-two">
-              ĐẮC NHÂN TÂM
-            </div>
+                    params: {
+                      id: book._id,
+                    },
+                  })
+                "
+              >
+                <img
+                  v-if="
+                    getBookImage(book)
+                  "
+                  :src="
+                    getBookImage(book)
+                  "
+                  :alt="book.title"
+                />
 
-            <div class="hero-book book-three">
-              ATOMIC HABITS
-            </div>
+                <span v-else>
+                  <i
+                    class="bi bi-book"
+                  />
 
-            <div class="hero-book book-four">
-              NHÀ GIẢ KIM
-            </div>
+                  <small>
+                    {{ book.title }}
+                  </small>
+                </span>
+              </button>
+            </template>
 
-            <div class="hero-mug">
-              <i class="bi bi-cup-hot" />
-            </div>
+            <div
+              v-else
+              class="hero-empty-books"
+            >
+              <i class="bi bi-bookshelf" />
 
-            <div class="hero-open-book">
-              <i
-                class="bi bi-book-half"
-              />
+              <span>
+                Kho sách KBook
+              </span>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- THÔNG BÁO LỖI -->
+    <section
+      v-if="errorMessage"
+      class="reader-section error-section"
+    >
+      <div class="reader-container">
+        <div class="home-error">
+          <i
+            class="bi bi-exclamation-circle-fill"
+          />
+
+          <span>
+            {{ errorMessage }}
+          </span>
+
+          <button
+            type="button"
+            @click="loadHomeData"
+          >
+            Tải lại
+          </button>
         </div>
       </div>
     </section>
@@ -250,10 +586,13 @@ onMounted(() => {
       <div class="reader-container">
         <div class="reader-section-heading">
           <div>
-            <h2>Danh mục nổi bật</h2>
+            <h2>
+              Danh mục sách
+            </h2>
 
             <p>
-              Khám phá sách theo chủ đề bạn yêu thích.
+              Các danh mục được thống kê trực
+              tiếp từ cơ sở dữ liệu.
             </p>
           </div>
 
@@ -262,7 +601,7 @@ onMounted(() => {
             class="reader-view-all category-view-button"
             @click="openBooks()"
           >
-            Xem tất cả
+            Xem tất cả sách
 
             <i
               class="bi bi-arrow-right"
@@ -270,9 +609,25 @@ onMounted(() => {
           </button>
         </div>
 
-        <div class="category-grid">
+        <div
+          v-if="loading"
+          class="category-loading"
+        >
+          <div
+            v-for="item in 8"
+            :key="item"
+            class="category-skeleton"
+          />
+        </div>
+
+        <div
+          v-else-if="
+            categories.length
+          "
+          class="category-grid"
+        >
           <button
-            v-for="category in categories"
+            v-for="category in categories.slice(0, 8)"
             :key="category.name"
             type="button"
             class="category-card"
@@ -301,8 +656,28 @@ onMounted(() => {
 
             <small>
               {{ category.count }}
+              đầu sách
             </small>
+
+            <em>
+              {{
+                category
+                  .availableCopies
+              }}
+              bản còn sẵn
+            </em>
           </button>
+        </div>
+
+        <div
+          v-else
+          class="home-empty-state"
+        >
+          <i class="bi bi-grid" />
+
+          <h3>
+            Chưa có danh mục sách
+          </h3>
         </div>
       </div>
     </section>
@@ -312,17 +687,22 @@ onMounted(() => {
       <div class="reader-container">
         <div class="reader-section-heading">
           <div>
-            <h2>Sách nổi bật</h2>
+            <h2>Sách đang có sẵn</h2>
 
             <p>
-              Những đầu sách đang được nhiều
-              độc giả quan tâm.
+              Các đầu sách còn nhiều bản và
+              có thể gửi yêu cầu mượn.
             </p>
           </div>
 
           <RouterLink
             :to="{
               name: 'reader-books',
+
+              query: {
+                availability:
+                  'available',
+              },
             }"
             class="reader-view-all"
           >
@@ -340,11 +720,15 @@ onMounted(() => {
         >
           <div class="loading-circle" />
 
-          Đang tải sách...
+          <span>
+            Đang tải sách...
+          </span>
         </div>
 
         <div
-          v-else
+          v-else-if="
+            featuredBooks.length
+          "
           class="book-grid"
         >
           <BookCard
@@ -354,24 +738,35 @@ onMounted(() => {
             compact
           />
         </div>
+
+        <div
+          v-else
+          class="home-empty-state"
+        >
+          <i class="bi bi-book" />
+
+          <h3>
+            Hiện chưa có sách sẵn sàng cho mượn
+          </h3>
+        </div>
       </div>
     </section>
 
-    <!-- PROMOTION -->
+    <!-- BANNER NHỎ -->
     <section class="reader-section promotion-section">
       <div class="reader-container promotion-grid">
         <article class="promotion-card promotion-pink">
           <div>
             <small>
-              Ưu đãi hội viên mới
+              Đăng ký độc giả
             </small>
 
             <h3>
-              Giảm 50% phí mượn
+              Tạo tài khoản miễn phí
             </h3>
 
             <p>
-              Cho yêu cầu đầu tiên.
+              Bắt đầu hành trình đọc sách.
             </p>
 
             <button
@@ -387,61 +782,62 @@ onMounted(() => {
             </button>
           </div>
 
-          <i class="bi bi-gift" />
+          <i class="bi bi-person-plus" />
         </article>
 
         <article class="promotion-card promotion-green">
           <div>
             <small>
-              Mượn 5 trả 4
+              Kho sách đa dạng
             </small>
 
             <h3>
-              Mượn càng nhiều
+              {{ totalBooks }} đầu sách
             </h3>
 
             <p>
-              Ưu đãi càng lớn.
+              Thuộc nhiều lĩnh vực khác nhau.
             </p>
 
             <button
               type="button"
               @click="openBooks()"
             >
-              Xem chi tiết
+              Khám phá sách
             </button>
           </div>
 
-          <i
-            class="bi bi-stack"
-          />
+          <i class="bi bi-stack" />
         </article>
 
         <article class="promotion-card promotion-purple">
           <div>
             <small>
-              Gói gia đình
+              Mượn sách trực tuyến
             </small>
 
             <h3>
-              Chia sẻ yêu thương
+              Nhanh chóng, tiện lợi
             </h3>
 
             <p>
-              Cùng nhau đọc sách.
+              Theo dõi yêu cầu ngay trên hệ thống.
             </p>
 
             <button
               type="button"
-              @click="openBooks()"
+              @click="
+                router.push({
+                  name:
+                    'reader-history',
+                })
+              "
             >
-              Khám phá ngay
+              Xem lịch sử
             </button>
           </div>
 
-          <i
-            class="bi bi-people"
-          />
+          <i class="bi bi-clock-history" />
         </article>
       </div>
     </section>
@@ -451,18 +847,22 @@ onMounted(() => {
       <div class="reader-container">
         <div class="reader-section-heading">
           <div>
-            <h2>Sách mới cập nhật</h2>
+            <h2>
+              Sách mới xuất bản
+            </h2>
 
             <p>
-              Các đầu sách mới nhất trong kho thư viện.
+              Sắp xếp theo năm xuất bản mới nhất
+              trong cơ sở dữ liệu.
             </p>
           </div>
 
           <RouterLink
             :to="{
               name: 'reader-books',
+
               query: {
-                sort: 'newest',
+                sort: 'year-desc',
               },
             }"
             class="reader-view-all"
@@ -475,13 +875,40 @@ onMounted(() => {
           </RouterLink>
         </div>
 
-        <div class="book-grid">
+        <div
+          v-if="loading"
+          class="home-loading"
+        >
+          <div class="loading-circle" />
+
+          <span>
+            Đang tải sách...
+          </span>
+        </div>
+
+        <div
+          v-else-if="
+            newestBooks.length
+          "
+          class="book-grid"
+        >
           <BookCard
             v-for="book in newestBooks"
             :key="book._id"
             :book="book"
             compact
           />
+        </div>
+
+        <div
+          v-else
+          class="home-empty-state"
+        >
+          <i class="bi bi-calendar3" />
+
+          <h3>
+            Chưa có sách mới
+          </h3>
         </div>
       </div>
     </section>
@@ -492,20 +919,27 @@ onMounted(() => {
         <div class="wide-promotion-banner">
           <div>
             <small>
-              Ưu đãi đặc biệt hè này
+              Thư viện trực tuyến
             </small>
 
             <h2>
-              Giảm 20% phí mượn tất cả sách
+              Có {{ totalAvailableCopies }}
+              bản sách đang sẵn sàng
             </h2>
 
             <p>
-              Áp dụng cho mọi độc giả đăng ký thành viên.
+              Đăng nhập, lựa chọn sách và gửi
+              yêu cầu mượn ngay hôm nay.
             </p>
 
             <button
               type="button"
-              @click="openBooks()"
+              @click="
+                openBooks({
+                  availability:
+                    'available',
+                })
+              "
             >
               Mượn sách ngay
 
@@ -515,81 +949,9 @@ onMounted(() => {
             </button>
           </div>
 
-          <span class="discount-badge">
-            -20%
+          <span class="banner-book-icon">
+            <i class="bi bi-book-half" />
           </span>
-        </div>
-      </div>
-    </section>
-
-    <!-- TIN TỨC -->
-    <section class="reader-section">
-      <div class="reader-container">
-        <div class="reader-section-heading">
-          <div>
-            <h2>Tin tức & cảm hứng</h2>
-
-            <p>
-              Những bài viết giúp xây dựng thói quen đọc sách.
-            </p>
-          </div>
-        </div>
-
-        <div class="article-grid">
-          <article>
-            <div class="article-image article-one">
-              <i class="bi bi-journal-text" />
-            </div>
-
-            <div class="article-content">
-              <small>
-                Cảm hứng đọc sách
-              </small>
-
-              <h3>
-                10 cuốn sách thay đổi tư duy
-                giúp bạn phát triển bản thân
-              </h3>
-
-              <span>20/07/2026</span>
-            </div>
-          </article>
-
-          <article>
-            <div class="article-image article-two">
-              <i class="bi bi-lightbulb" />
-            </div>
-
-            <div class="article-content">
-              <small>
-                Kinh nghiệm đọc sách
-              </small>
-
-              <h3>
-                Bí quyết đọc sách hiệu quả
-                dành cho người bận rộn
-              </h3>
-
-              <span>18/07/2026</span>
-            </div>
-          </article>
-
-          <article>
-            <div class="article-image article-three">
-              <i class="bi bi-people" />
-            </div>
-
-            <div class="article-content">
-              <small>Sự kiện</small>
-
-              <h3>
-                Ngày hội đọc sách KBook
-                cùng lan tỏa tri thức
-              </h3>
-
-              <span>15/07/2026</span>
-            </div>
-          </article>
         </div>
       </div>
     </section>
@@ -602,7 +964,7 @@ onMounted(() => {
 }
 
 .hero-banner {
-  min-height: 390px;
+  min-height: 410px;
   overflow: hidden;
   position: relative;
   display: grid;
@@ -645,7 +1007,7 @@ onMounted(() => {
 }
 
 .hero-content > p {
-  max-width: 470px;
+  max-width: 500px;
   margin: 0;
   color: #627469;
   font-size: 13px;
@@ -665,127 +1027,170 @@ onMounted(() => {
   color: #fff;
   font-size: 11px;
   font-weight: 900;
+  cursor: pointer;
 }
 
-.hero-benefits {
-  margin-top: 29px;
+.hero-statistics {
+  margin-top: 30px;
   display: flex;
-  gap: 21px;
+  flex-wrap: wrap;
+  gap: 28px;
 }
 
-.hero-benefits > div {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.hero-benefits i {
-  width: 31px;
-  height: 31px;
-  display: grid;
-  place-items: center;
-  border: 1px solid
-    rgb(12 101 61 / 25%);
-  border-radius: 50%;
-  color: var(--reader-primary);
-}
-
-.hero-benefits strong,
-.hero-benefits small {
+.hero-statistics strong,
+.hero-statistics span {
   display: block;
 }
 
-.hero-benefits strong {
-  color: #315642;
+.hero-statistics strong {
+  color: var(--reader-primary);
+  font-size: 23px;
+}
+
+.hero-statistics span {
+  margin-top: 3px;
+  color: #75857b;
   font-size: 8px;
 }
 
-.hero-benefits small {
-  margin-top: 2px;
-  color: #819287;
-  font-size: 7px;
-}
-
 .hero-visual {
+  min-height: 410px;
   position: relative;
-  background:
-    linear-gradient(
-      to bottom,
-      transparent 55%,
-      #ca9c63 55%
-    );
+  overflow: hidden;
 }
 
-.hero-book {
-  width: 250px;
-  height: 47px;
-  padding: 0 17px;
+.hero-visual::before {
+  width: 320px;
+  height: 320px;
   position: absolute;
-  right: 45px;
+  top: 40px;
+  left: 50%;
+  border-radius: 50%;
+  background:
+    rgb(255 255 255 / 38%);
+  content: "";
+  transform: translateX(-50%);
+}
+
+.hero-cover {
+  width: 175px;
+  height: 255px;
+  padding: 0;
+  position: absolute;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow:
+    0 22px 35px
+    rgb(15 23 42 / 22%);
+  cursor: pointer;
+  transition:
+    transform 0.25s ease;
+}
+
+.hero-cover:hover {
+  z-index: 10;
+  transform:
+    translateY(-8px)
+    rotate(0deg)
+    scale(1.04);
+}
+
+.hero-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.hero-cover > span {
+  padding: 15px;
+  color: var(--reader-primary);
+  text-align: center;
+}
+
+.hero-cover > span i {
+  display: block;
+  font-size: 55px;
+}
+
+.hero-cover > span small {
+  margin-top: 12px;
+  display: block;
+  font-weight: 800;
+}
+
+.hero-cover-1 {
+  top: 65px;
+  left: 37%;
+  z-index: 4;
+  transform: rotate(-2deg);
+}
+
+.hero-cover-2 {
+  top: 92px;
+  left: 8%;
+  z-index: 2;
+  transform: rotate(-12deg);
+}
+
+.hero-cover-3 {
+  top: 85px;
+  right: 4%;
+  z-index: 3;
+  transform: rotate(11deg);
+}
+
+.hero-cover-4 {
+  width: 145px;
+  height: 215px;
+  right: 31%;
+  bottom: -65px;
+  z-index: 5;
+  transform: rotate(3deg);
+}
+
+.hero-empty-books {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--reader-primary);
+}
+
+.hero-empty-books i {
+  font-size: 90px;
+}
+
+.error-section {
+  padding-bottom: 0;
+}
+
+.home-error {
+  padding: 14px 16px;
   display: flex;
   align-items: center;
-  border-radius: 4px;
+  gap: 9px;
+  border: 1px solid #fecaca;
+  border-radius: 11px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 10px;
+}
+
+.home-error span {
+  min-width: 0;
+  flex: 1;
+}
+
+.home-error button {
+  min-height: 31px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: #b91c1c;
   color: #fff;
-  font-size: 14px;
-  font-weight: 900;
-  box-shadow:
-    0 8px 15px
-    rgb(15 23 42 / 15%);
-  transform: rotate(-4deg);
-}
-
-.book-one {
-  top: 95px;
-  background: #e8e1ce;
-  color: #444;
-}
-
-.book-two {
-  top: 140px;
-  right: 55px;
-  background: #bf3434;
-}
-
-.book-three {
-  top: 185px;
-  right: 43px;
-  background: #f4e8d1;
-  color: #2d2d2d;
-}
-
-.book-four {
-  top: 230px;
-  right: 57px;
-  background: #e0a531;
-  color: #32230d;
-}
-
-.hero-mug {
-  width: 100px;
-  height: 100px;
-  position: absolute;
-  left: 50px;
-  bottom: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  background: #416230;
-  color: #fff;
-  font-size: 40px;
-  box-shadow: var(--reader-shadow);
-}
-
-.hero-open-book {
-  width: 210px;
-  height: 125px;
-  position: absolute;
-  right: 20px;
-  bottom: 15px;
-  display: grid;
-  place-items: center;
-  color: #f3ead8;
-  font-size: 120px;
-  transform: rotate(-8deg);
 }
 
 .category-view-button {
@@ -793,27 +1198,38 @@ onMounted(() => {
   background: transparent;
 }
 
-.category-grid {
+.category-grid,
+.category-loading {
   display: grid;
   grid-template-columns:
-    repeat(8, minmax(0, 1fr));
-  gap: 11px;
+    repeat(4, minmax(0, 1fr));
+  gap: 13px;
 }
 
 .category-card {
-  min-height: 125px;
-  padding: 15px 8px;
+  min-height: 145px;
+  padding: 18px 10px;
   display: flex;
   align-items: center;
   flex-direction: column;
-  border: 1px solid var(--reader-border);
+  border: 1px solid
+    var(--reader-border);
   border-radius: 15px;
   background: #fff;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.category-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--reader-shadow);
 }
 
 .category-icon {
-  width: 52px;
-  height: 52px;
+  width: 54px;
+  height: 54px;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -861,15 +1277,46 @@ onMounted(() => {
 }
 
 .category-card strong {
-  margin-top: 10px;
+  margin-top: 11px;
   color: var(--reader-text);
-  font-size: 9px;
+  font-size: 10px;
+  text-align: center;
 }
 
 .category-card small {
-  margin-top: 4px;
+  margin-top: 5px;
   color: var(--reader-muted);
+  font-size: 8px;
+}
+
+.category-card em {
+  margin-top: 5px;
+  color: var(--reader-primary);
   font-size: 7px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.category-skeleton {
+  min-height: 145px;
+  border-radius: 15px;
+  background:
+    linear-gradient(
+      90deg,
+      #f1f5f2 25%,
+      #fafcfb 50%,
+      #f1f5f2 75%
+    );
+  background-size: 200% 100%;
+  animation:
+    skeleton-loading
+    1.3s infinite;
+}
+
+@keyframes skeleton-loading {
+  to {
+    background-position: -200% 0;
+  }
 }
 
 .featured-section {
@@ -879,26 +1326,52 @@ onMounted(() => {
 .book-grid {
   display: grid;
   grid-template-columns:
-    repeat(6, minmax(0, 1fr));
-  gap: 14px;
+    repeat(4, minmax(0, 1fr));
+  gap: 17px;
 }
 
 .home-loading {
-  min-height: 250px;
-  display: grid;
-  place-items: center;
+  min-height: 260px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 10px;
   color: var(--reader-muted);
+  font-size: 10px;
 }
 
 .loading-circle {
-  width: 27px;
-  height: 27px;
+  width: 31px;
+  height: 31px;
   border: 3px solid #d9e6de;
   border-top-color:
     var(--reader-primary);
   border-radius: 50%;
   animation:
     reader-spin 0.8s linear infinite;
+}
+
+.home-empty-state {
+  min-height: 240px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  border: 1px dashed
+    var(--reader-border);
+  border-radius: 15px;
+  color: var(--reader-muted);
+  text-align: center;
+}
+
+.home-empty-state i {
+  color: var(--reader-primary);
+  font-size: 42px;
+}
+
+.home-empty-state h3 {
+  margin-top: 12px;
 }
 
 .promotion-grid {
@@ -923,12 +1396,12 @@ onMounted(() => {
 
 .promotion-card h3 {
   margin: 8px 0 5px;
-  font-size: 21px;
+  font-size: 19px;
 }
 
 .promotion-card p {
   margin: 0;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .promotion-card button {
@@ -943,7 +1416,7 @@ onMounted(() => {
 }
 
 .promotion-card > i {
-  font-size: 67px;
+  font-size: 61px;
   opacity: 0.7;
 }
 
@@ -990,9 +1463,8 @@ onMounted(() => {
 }
 
 .wide-promotion-banner {
-  min-height: 175px;
+  min-height: 185px;
   padding: 35px 44px;
-  position: relative;
   overflow: hidden;
   display: flex;
   justify-content: space-between;
@@ -1043,80 +1515,22 @@ onMounted(() => {
   font-weight: 900;
 }
 
-.discount-badge {
+.banner-book-icon {
   width: 120px;
   height: 120px;
   display: grid;
   place-items: center;
-  border: 8px double #fff;
+  border: 7px double #fff;
   border-radius: 50%;
   background:
     var(--reader-primary);
   color: #fff;
-  font-size: 31px;
-  font-weight: 900;
-}
-
-.article-grid {
-  display: grid;
-  grid-template-columns:
-    repeat(3, minmax(0, 1fr));
-  gap: 17px;
-}
-
-.article-grid article {
-  overflow: hidden;
-  border: 1px solid var(--reader-border);
-  border-radius: 15px;
-  background: #fff;
-}
-
-.article-image {
-  height: 160px;
-  display: grid;
-  place-items: center;
   font-size: 48px;
 }
 
-.article-one {
-  background: #e9f2e4;
-  color: #4a8155;
-}
-
-.article-two {
-  background: #faeadf;
-  color: #af6e44;
-}
-
-.article-three {
-  background: #e3eef8;
-  color: #3f75a3;
-}
-
-.article-content {
-  padding: 15px;
-}
-
-.article-content small {
-  color: var(--reader-primary);
-  font-size: 8px;
-  font-weight: 800;
-}
-
-.article-content h3 {
-  margin: 7px 0;
-  color: var(--reader-text);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.article-content span {
-  color: var(--reader-muted);
-  font-size: 8px;
-}
-
 @media (max-width: 1050px) {
-  .category-grid {
+  .category-grid,
+  .category-loading {
     grid-template-columns:
       repeat(4, 1fr);
   }
@@ -1127,22 +1541,21 @@ onMounted(() => {
   }
 }
 
-@media (max-width: 780px) {
+@media (max-width: 800px) {
   .hero-banner {
     grid-template-columns: 1fr;
   }
 
   .hero-visual {
-    min-height: 310px;
+    min-height: 350px;
   }
 
-  .promotion-grid,
-  .article-grid {
+  .promotion-grid {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 600px) {
   .hero-content {
     padding: 30px 23px;
   }
@@ -1151,25 +1564,38 @@ onMounted(() => {
     font-size: 31px;
   }
 
-  .hero-benefits {
-    align-items: flex-start;
-    flex-direction: column;
+  .hero-statistics {
+    gap: 18px;
   }
 
   .category-grid,
+  .category-loading,
   .book-grid {
     grid-template-columns:
       repeat(2, 1fr);
+  }
+
+  .hero-cover {
+    width: 135px;
+    height: 205px;
   }
 
   .wide-promotion-banner {
     padding: 25px;
   }
 
-  .discount-badge {
-    width: 80px;
-    height: 80px;
-    font-size: 21px;
+  .banner-book-icon {
+    width: 78px;
+    height: 78px;
+    font-size: 31px;
+  }
+}
+
+@media (max-width: 390px) {
+  .category-grid,
+  .category-loading,
+  .book-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

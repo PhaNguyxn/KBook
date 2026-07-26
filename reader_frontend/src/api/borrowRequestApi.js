@@ -1,21 +1,21 @@
 import api from "./axios";
 
 export const borrowRequestApi = {
-  create(data) {
-    return api.post("/borrow-requests", data);
+  create(payload) {
+    return api.post("/borrow-requests/reader", payload);
   },
 
   getMyRequests(params = {}) {
-    return api.get("/borrow-requests/my-requests", {
+    return api.get("/borrow-requests/reader/my-requests", {
       params,
     });
   },
 
-  getById(id) {
-    return api.get(`/borrow-requests/${id}`);
+  getMyRequestById(id) {
+    return api.get(`/borrow-requests/reader/my-requests/${id}`);
   },
 
-  cancel(id) {
-    return api.patch(`/borrow-requests/${id}/cancel`);
+  cancelMyRequest(id) {
+    return api.patch(`/borrow-requests/reader/my-requests/${id}/cancel`);
   },
 };

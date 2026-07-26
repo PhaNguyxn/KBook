@@ -7,6 +7,7 @@ import router from "./router";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./assets/main.css";
 import "./assets/reader-theme.css";
+import "./assets/reader-font-size.css";
 
 const app = createApp(App);
 

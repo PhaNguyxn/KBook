@@ -10,18 +10,14 @@ const api = axios.create({
   },
 });
 
-/* =========================================
-   GẮN TOKEN ĐỘC GIẢ
-========================================= */
-
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("readerToken");
+    const readerToken = localStorage.getItem("readerToken");
 
-    if (token) {
-      config.headers = config.headers || {};
-
-      config.headers.Authorization = `Bearer ${token}`;
+    if (readerToken) {
+      config.headers.Authorization = `Bearer ${readerToken}`;
+    } else {
+      delete config.headers.Authorization;
     }
 
     return config;
@@ -32,14 +28,35 @@ api.interceptors.request.use(
   },
 );
 
-/* =========================================
-   XỬ LÝ RESPONSE
-========================================= */
-
 api.interceptors.response.use(
   (response) => response,
 
   (error) => {
+    const status = error?.response?.status;
+
+    const code = error?.response?.data?.code;
+
+    const invalidReaderCodes = [
+      "READER_NOT_FOUND",
+      "READER_TOKEN_INVALID",
+      "READER_TOKEN_EXPIRED",
+      "READER_ID_INVALID",
+      "INVALID_ACCOUNT_TYPE",
+    ];
+
+    if (status === 401 && invalidReaderCodes.includes(code)) {
+      localStorage.removeItem("readerToken");
+
+      localStorage.removeItem("reader");
+
+      const currentPath = window.location.pathname + window.location.search;
+
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = `/login?redirect=${encodeURIComponent(
+          currentPath,
+        )}`;
+      }
+    }
 
     return Promise.reject(error);
   },

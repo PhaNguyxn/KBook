@@ -10,26 +10,26 @@ const bookUpload = require("../middleware/bookUpload.middleware");
 
 const router = express.Router();
 
+
+router.get("/", BookController.getAllBooks);
+
+router.get("/:id", BookController.getBookById);
+
 router.use(verifyToken);
-
-router.get("/", isStaffOrAdmin, BookController.getAllBooks);
-
-router.get("/:id", isStaffOrAdmin, BookController.getBookById);
-
 router.post(
   "/",
-  isAdmin,
+  isStaffOrAdmin,
   bookUpload.single("imageFile"),
   BookController.createBook,
 );
 
 router.put(
   "/:id",
-  isAdmin,
+  isStaffOrAdmin,
   bookUpload.single("imageFile"),
   BookController.updateBook,
 );
 
-router.delete("/:id", isAdmin, BookController.deleteBook);
+router.delete("/:id", isStaffOrAdmin, BookController.deleteBook);
 
 module.exports = router;

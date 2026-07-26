@@ -1,24 +1,16 @@
 import { createRouter, createWebHistory } from "vue-router";
 
+import ReaderLayout from "@/layouts/ReaderLayout.vue";
 import { useReaderAuthStore } from "@/stores/readerAuth";
 
-import ReaderLayout from "@/layouts/ReaderLayout.vue";
-
-import Login from "@/views/auth/Login.vue";
-import Register from "@/views/auth/Register.vue"
-
-import Home from "@/views/Home.vue";
-import BookList from "@/views/BookList.vue";
-import BookDetail from "@/views/BookDetail.vue";
-import RequestList from "@/views/RequestList.vue";
-import BorrowCart from "@/views/BorrowCart.vue";
-import Profile from "@/views/Profile.vue";
-
 const routes = [
+
+
   {
     path: "/login",
     name: "reader-login",
-    component: Login,
+
+    component: () => import("@/views/auth/Login.vue"),
 
     meta: {
       guestOnly: true,
@@ -28,62 +20,87 @@ const routes = [
   {
     path: "/register",
     name: "reader-register",
-    component: Register,
+
+    component: () => import("@/views/auth/Register.vue"),
 
     meta: {
       guestOnly: true,
     },
   },
 
+
   {
     path: "/",
     component: ReaderLayout,
 
-    meta: {
-      requiresAuth: true,
-    },
-
     children: [
+
       {
         path: "",
         name: "reader-home",
-        component: Home,
+
+        component: () => import("@/views/Home.vue"),
       },
 
       {
         path: "books",
         name: "reader-books",
-        component: BookList,
+
+        component: () => import("@/views/BookList.vue"),
       },
 
       {
         path: "books/:id",
         name: "reader-book-detail",
-        component: BookDetail,
+
+        component: () => import("@/views/BookDetail.vue"),
+
+        props: true,
+      },
+
+      {
+        path: "contact",
+        name: "reader-contact",
+
+        component: () => import("@/views/ReaderContactView.vue"),
+      },
+
+      {
+        path: "borrow-cart",
+        name: "reader-borrow-cart",
+
+        component: () => import("@/views/BorrowCart.vue"),
+      },
+
+
+      {
+        path: "profile",
+        name: "reader-profile",
+
+        component: () => import("@/views/Profile.vue"),
+
+        meta: {
+          requiresAuth: true,
+        },
       },
 
       {
         path: "requests",
         name: "reader-requests",
-        component: RequestList,
+
+        component: () => import("@/views/RequestList.vue"),
+
         meta: {
           requiresAuth: true,
         },
       },
 
       {
-        path: "borrows-cart",
-        name: "reader-borrows-cart",
-        component: BorrowCart,
-        meta: {
-          requiresAuth: true,
-        },
-      },
+        path: "history",
+        name: "reader-history",
 
-      {
-        path: "profile",
-        name: "reader-profile",
-        component: Profile,
+        component: () => import("@/views/ReaderHistoryView.vue"),
+
         meta: {
           requiresAuth: true,
         },
@@ -93,26 +110,38 @@ const routes = [
 
   {
     path: "/:pathMatch(.*)*",
-    redirect: "/",
+
+    redirect: {
+      name: "reader-home",
+    },
   },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
-
   routes,
 
   scrollBehavior() {
     return {
       top: 0,
+      behavior: "smooth",
     };
   },
 });
 
+
 router.beforeEach((to) => {
   const authStore = useReaderAuthStore();
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+  const requiresAuth = to.matched.some(
+    (routeRecord) => routeRecord.meta.requiresAuth,
+  );
+
+  const guestOnly = to.matched.some(
+    (routeRecord) => routeRecord.meta.guestOnly,
+  );
+
+  if (requiresAuth && !authStore.isAuthenticated) {
     return {
       name: "reader-login",
 
@@ -122,7 +151,7 @@ router.beforeEach((to) => {
     };
   }
 
-  if (to.meta.guestOnly && authStore.isAuthenticated) {
+  if (guestOnly && authStore.isAuthenticated) {
     return {
       name: "reader-home",
     };

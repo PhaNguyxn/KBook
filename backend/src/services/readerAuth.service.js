@@ -79,17 +79,15 @@ async function generateReaderCode() {
 ========================================= */
 
 function generateReaderToken(reader) {
-  const secret = process.env.JWT_SECRET;
-
-  if (!secret) {
+  if (!process.env.JWT_SECRET) {
     throw new Error("JWT_SECRET chưa được cấu hình");
   }
 
   return jwt.sign(
     {
-      id: reader._id,
+      readerId: String(reader._id),
 
-      readerId: reader._id,
+      id: String(reader._id),
 
       readerCode: reader.readerCode,
 
@@ -98,10 +96,10 @@ function generateReaderToken(reader) {
       type: "reader",
     },
 
-    secret,
+    process.env.JWT_SECRET,
 
     {
-      expiresIn: process.env.JWT_EXPIRE || "7d",
+      expiresIn: process.env.JWT_EXPIRES || "7d",
     },
   );
 }

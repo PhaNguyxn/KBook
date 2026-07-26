@@ -30,34 +30,22 @@ const cartStore =
   useBorrowCartStore();
 
 const imageError = ref(false);
+const added = ref(false);
 
 const serverUrl = String(
   import.meta.env.VITE_SERVER_URL ||
-  "http://localhost:3000",
+    "http://localhost:3000",
 ).replace(/\/+$/, "");
 
 const available = computed(() => {
   return Number(
-    props.book.available ??
-      props.book.quantity ??
-      0,
+    props.book.available || 0,
   );
 });
 
-const categoryName = computed(() => {
-  const category =
-    props.book.category;
-
-  if (
-    typeof category === "string"
-  ) {
-    return category;
-  }
-
-  return (
-    category?.name ||
-    category?.category ||
-    "Chưa phân loại"
+const quantity = computed(() => {
+  return Number(
+    props.book.quantity || 0,
   );
 });
 
@@ -72,17 +60,50 @@ const imageUrl = computed(() => {
     return "";
   }
 
+  const normalizedImage =
+    String(image).replace(
+      /\\/g,
+      "/",
+    );
+
   if (
-    image.startsWith("http") ||
-    image.startsWith("data:")
+    normalizedImage.startsWith(
+      "http://",
+    ) ||
+    normalizedImage.startsWith(
+      "https://",
+    ) ||
+    normalizedImage.startsWith(
+      "data:",
+    ) ||
+    normalizedImage.startsWith(
+      "blob:",
+    )
   ) {
-    return image;
+    return normalizedImage;
   }
 
-  return `${serverUrl}/${image.replace(
+  return `${serverUrl}/${normalizedImage.replace(
     /^\/+/,
     "",
   )}`;
+});
+
+const publisherName = computed(() => {
+  const publisher =
+    props.book.publisher;
+
+  if (
+    typeof publisher === "object"
+  ) {
+    return (
+      publisher?.publisherName ||
+      publisher?.name ||
+      ""
+    );
+  }
+
+  return "";
 });
 
 function openDetail() {
@@ -104,6 +125,12 @@ function addToCart() {
     props.book,
     1,
   );
+
+  added.value = true;
+
+  window.setTimeout(() => {
+    added.value = false;
+  }, 1500);
 }
 </script>
 
@@ -115,45 +142,54 @@ function addToCart() {
     }"
   >
     <button
-      type="button"
-      class="book-image"
-      @click="openDetail"
+  type="button"
+  class="cover-button"
+  :title="`Xem chi tiết ${book.title}`"
+  @click="openDetail"
+>
+  <span class="cover-frame">
+    <img
+      v-if="imageUrl && !imageError"
+      :src="imageUrl"
+      :alt="book.title"
+      loading="lazy"
+      @error="imageError = true"
+    />
+
+    <span
+      v-else
+      class="cover-placeholder"
     >
-      <img
-        v-if="
-          imageUrl &&
-          !imageError
-        "
-        :src="imageUrl"
-        :alt="book.title"
-        @error="
-          imageError = true
-        "
-      />
+      <i class="bi bi-book" />
 
-      <span
-        v-else
-        class="image-placeholder"
-      >
-        <i class="bi bi-book" />
-      </span>
+      <small>
+        {{ book.bookCode }}
+      </small>
+    </span>
+  </span>
 
-      <span
-        class="availability-badge"
-        :class="{
-          unavailable:
-            available <= 0,
-        }"
-      >
-        {{
-          available > 0
-            ? "Còn sẵn"
-            : "Hết sách"
-        }}
-      </span>
-    </button>
+  <span
+    class="stock-badge"
+    :class="{
+      unavailable: available <= 0,
+    }"
+  >
+    {{
+      available > 0
+        ? `Còn ${available}`
+        : "Hết sách"
+    }}
+  </span>
+</button>
 
     <div class="book-content">
+      <span class="book-category">
+        {{
+          book.category ||
+          "Chưa phân loại"
+        }}
+      </span>
+
       <button
         type="button"
         class="book-title"
@@ -169,31 +205,57 @@ function addToCart() {
         }}
       </span>
 
-      <span class="book-category">
-        {{ categoryName }}
-      </span>
+      <div class="book-meta">
+        <span>
+          <i class="bi bi-calendar3" />
+
+          {{
+            book.publishYear ||
+            "—"
+          }}
+        </span>
+
+        <span>
+          <i class="bi bi-translate" />
+
+          {{
+            book.language ||
+            "Tiếng Việt"
+          }}
+        </span>
+      </div>
 
       <span
-        class="book-stock"
-        :class="{
-          out:
-            available <= 0,
-        }"
+        v-if="publisherName"
+        class="publisher"
       >
-        <i
-          class="bi bi-circle-fill"
-        />
+        <i class="bi bi-building" />
 
-        {{
-          available > 0
-            ? `Còn ${available} bản`
-            : "Đang được mượn"
-        }}
+        {{ publisherName }}
       </span>
+
+      <div class="quantity-information">
+        <span>
+          Tổng:
+          <strong>
+            {{ quantity }}
+          </strong>
+        </span>
+
+        <span>
+          Còn:
+          <strong>
+            {{ available }}
+          </strong>
+        </span>
+      </div>
 
       <button
         type="button"
         class="borrow-button"
+        :class="{
+          added,
+        }"
         :disabled="
           available <= 0
         "
@@ -201,16 +263,18 @@ function addToCart() {
       >
         <i
           :class="
-            available > 0
-              ? 'bi bi-plus-lg'
-              : 'bi bi-clock'
+            added
+              ? 'bi bi-check-lg'
+              : 'bi bi-bag-plus'
           "
         />
 
         {{
-          available > 0
-            ? "Thêm vào giỏ mượn"
-            : "Đặt trước"
+          added
+            ? "Đã thêm"
+            : available > 0
+              ? "Thêm vào giỏ mượn"
+              : "Chưa thể mượn"
         }}
       </button>
     </div>
@@ -220,9 +284,12 @@ function addToCart() {
 <style scoped>
 .book-card {
   min-width: 0;
+  height: 100%;
   overflow: hidden;
-  border: 1px solid var(--reader-border);
-  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e3ebe6;
+  border-radius: 15px;
   background: #fff;
   transition:
     transform 0.2s ease,
@@ -231,129 +298,190 @@ function addToCart() {
 
 .book-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--reader-shadow);
+  box-shadow:
+    0 14px 35px
+    rgb(15 23 42 / 9%);
 }
 
-.book-image {
+.cover-button {
   width: 100%;
-  height: 255px;
+  height: 320px;
   padding: 18px;
   position: relative;
-  display: grid;
-  place-items: center;
+  display: block;
+  overflow: hidden;
   border: 0;
-  background: #f8faf9;
+  background: #f5f8f6;
+  cursor: pointer;
 }
 
-.book-image img {
+.book-card.compact .cover-button {
+  height: 285px;
+}
+
+.cover-frame {
   width: 100%;
   height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.cover-frame img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
   object-fit: contain;
+  object-position: center;
+  filter:
+    drop-shadow(
+      0 10px 12px
+      rgb(15 23 42 / 15%)
+    );
 }
 
-.image-placeholder {
-  color: var(--reader-primary);
-  font-size: 45px;
+.cover-placeholder {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  color: #0c653d;
 }
 
-.availability-badge {
+.cover-placeholder i {
+  font-size: 50px;
+}
+
+.cover-placeholder small {
+  margin-top: 10px;
+  font-weight: 900;
+}
+
+.stock-badge {
   padding: 5px 8px;
   position: absolute;
   top: 11px;
   right: 11px;
   border-radius: 999px;
-  background: #20a862;
+  background: #16a05d;
   color: #fff;
   font-size: 8px;
   font-weight: 900;
 }
 
-.availability-badge.unavailable {
-  background: #f59e0b;
+.stock-badge.unavailable {
+  background: #d97706;
 }
 
 .book-content {
-  padding: 14px;
+  min-width: 0;
+  padding: 15px;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.book-category {
+  color: #0c653d;
+  font-size: 8px;
+  font-weight: 900;
 }
 
 .book-title {
   width: 100%;
+  min-height: 41px;
+  margin-top: 7px;
   padding: 0;
   overflow: hidden;
-  display: block;
+  display: -webkit-box;
   border: 0;
   background: transparent;
-  color: var(--reader-text);
-  font-size: 12px;
+  color: #1c3025;
+  font-size: 11px;
   font-weight: 900;
+  line-height: 1.55;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.book-author,
-.book-category,
-.book-stock {
-  display: block;
+  cursor: pointer;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .book-author {
   margin-top: 6px;
-  color: #71808d;
-  font-size: 9px;
-}
-
-.book-category {
-  margin-top: 7px;
-  color: #a0abb5;
+  overflow: hidden;
+  display: block;
+  color: #728078;
   font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.book-stock {
+.book-meta {
   margin-top: 10px;
-  color: #179d59;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #89958e;
+  font-size: 7px;
+}
+
+.publisher {
+  margin-top: 8px;
+  display: block;
+  overflow: hidden;
+  color: #89958e;
+  font-size: 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quantity-information {
+  margin-top: 11px;
+  margin-bottom: 13px;
+  padding: 8px 9px;
+  display: flex;
+  justify-content: space-between;
+  border-radius: 8px;
+  background: #f5f8f6;
+  color: #738078;
   font-size: 8px;
-  font-weight: 800;
 }
 
-.book-stock i {
-  margin-right: 5px;
-  font-size: 6px;
-}
-
-.book-stock.out {
-  color: #e58a00;
+.quantity-information strong {
+  color: #0c653d;
 }
 
 .borrow-button {
   width: 100%;
-  min-height: 36px;
-  margin-top: 13px;
-  display: inline-flex;
+  min-height: 42px;
+  margin-top: auto;
+  padding: 0 10px;
+  display: flex;
   justify-content: center;
   align-items: center;
-  gap: 6px;
-  border: 1px solid var(--reader-accent);
+  gap: 7px;
+  border: 1px solid #0c653d;
   border-radius: 9px;
   background: #fff;
-  color: var(--reader-accent);
+  color: #0c653d;
   font-size: 9px;
   font-weight: 900;
+  cursor: pointer;
 }
 
-.borrow-button:hover:not(:disabled) {
-  background:
-    var(--reader-accent);
+.borrow-button:hover:not(:disabled),
+.borrow-button.added {
+  background: #0c653d;
   color: #fff;
 }
 
 .borrow-button:disabled {
   cursor: not-allowed;
-  border-color: #f0b85a;
-  color: #d98908;
-}
-
-.book-card.compact .book-image {
-  height: 210px;
+  border-color: #d6ded9;
+  color: #a0aaa4;
+  opacity: 0.7;
 }
 </style>

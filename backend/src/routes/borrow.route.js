@@ -8,6 +8,16 @@ const verifyToken = require("../middleware/auth.middleware");
 
 const { isStaffOrAdmin } = require("../middleware/role.middleware");
 
+const readerAuthMiddleware = require("../middleware/readerAuth.middleware");
+
+router.get("/my-history", readerAuthMiddleware, BorrowController.getMyBorrows);
+
+router.get(
+  "/my-history/:id",
+  readerAuthMiddleware,
+  BorrowController.getMyBorrowById,
+);
+
 router.use(verifyToken);
 router.use(isStaffOrAdmin);
 

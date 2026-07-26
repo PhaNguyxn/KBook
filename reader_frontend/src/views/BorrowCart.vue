@@ -171,7 +171,8 @@ async function submitBorrowRequest() {
       name: "reader-login",
 
       query: {
-        redirect: "/borrow-cart",
+        redirect:
+          "/borrow-cart",
       },
     });
 
@@ -182,12 +183,6 @@ async function submitBorrowRequest() {
 
   try {
     const payload = {
-      readerId:
-        authStore.reader?._id,
-
-      requestDate:
-        new Date().toISOString(),
-
       borrowDate:
         borrowDate.value,
 
@@ -226,12 +221,42 @@ async function submitBorrowRequest() {
     });
   } catch (error) {
     console.error(
-      "Create borrow request error:",
+      "Submit borrow request error:",
       error,
     );
 
+    const code =
+      error?.response?.data?.code;
+
+    if (
+      code ===
+        "READER_NOT_FOUND" ||
+      code ===
+        "READER_TOKEN_INVALID" ||
+      error?.response?.status === 401
+    ) {
+      authStore.logout();
+
+      errorMessage.value =
+        "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại";
+
+      window.setTimeout(() => {
+        router.push({
+          name: "reader-login",
+
+          query: {
+            redirect:
+              "/borrow-cart",
+          },
+        });
+      }, 1200);
+
+      return;
+    }
+
     errorMessage.value =
-      error?.response?.data?.message ||
+      error?.response?.data
+        ?.message ||
       "Không thể gửi yêu cầu mượn sách";
   } finally {
     submitting.value = false;

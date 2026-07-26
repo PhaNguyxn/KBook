@@ -84,9 +84,88 @@ const returnBorrow = async (req, res) => {
   }
 };
 
+// Danh sách phiếu mượn của độc giả đăng nhập
+const getMyBorrows = async (
+  req,
+  res,
+) => {
+  try {
+    const result =
+      await BorrowService
+        .getAllBorrows({
+          ...req.query,
+
+          reader:
+            req.readerId.toString(),
+        });
+
+    return res.status(200).json({
+      success: true,
+
+      message:
+        "Lấy lịch sử mượn thành công",
+
+      data: result,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+
+      message:
+        error.message ||
+        "Không thể lấy lịch sử mượn",
+    });
+  }
+};
+
+// Chi tiết phiếu mượn của độc giả đăng nhập
+const getMyBorrowById = async (
+  req,
+  res,
+) => {
+  try {
+    const result =
+      await BorrowService
+        .getBorrowById(
+          req.params.id,
+        );
+
+    const borrowReaderId =
+      result.borrow?.reader?._id ||
+      result.borrow?.reader;
+
+    if (
+      String(borrowReaderId) !==
+      String(req.readerId)
+    ) {
+      return res.status(403).json({
+        success: false,
+
+        message:
+          "Bạn không có quyền xem phiếu mượn này",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return res.status(404).json({
+      success: false,
+
+      message:
+        error.message ||
+        "Không tìm thấy phiếu mượn",
+    });
+  }
+};
+
 module.exports = {
   getAllBorrows,
   getBorrowById,
   createBorrow,
   returnBorrow,
+  getMyBorrows,
+  getMyBorrowById,
 };

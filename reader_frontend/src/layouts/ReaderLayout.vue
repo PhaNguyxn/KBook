@@ -1,8 +1,4 @@
 <script setup>
-import {
-  RouterView,
-} from "vue-router";
-
 import ReaderHeader from
   "@/components/layout/ReaderHeader.vue";
 
@@ -25,10 +21,13 @@ import ReaderFooter from
 <style scoped>
 .reader-layout {
   min-height: 100vh;
-  background: #fff;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
 }
 
 .reader-main {
-  min-height: 65vh;
+  min-height: 500px;
+  flex: 1;
 }
 </style>
