@@ -5,9 +5,6 @@ const Publisher = require("../models/Publisher");
 const generateCode = require("../utils/generateCode");
 const PublisherService = require("./PublisherService");
 
-/* ==================================================
-   HÀM HỖ TRỢ
-================================================== */
 
 function escapeRegex(value = "") {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -66,15 +63,7 @@ function validateQuantity(value) {
   return quantity;
 }
 
-/**
- * Tìm nhà xuất bản từ tên hoặc ObjectId.
- *
- * Khi thêm sách mới, frontend chỉ cần gửi
- * publisherName.
- *
- * Việc hỗ trợ ObjectId giúp tương thích với
- * frontend hoặc dữ liệu cũ.
- */
+
 async function resolvePublisher(publisherValue) {
   const value = String(publisherValue || "").trim();
 
@@ -95,10 +84,6 @@ async function resolvePublisher(publisherValue) {
   return PublisherService.findOrCreatePublisherByName(value);
 }
 
-/* ==================================================
-   GET /api/books
-   LẤY DANH SÁCH SÁCH
-================================================== */
 
 async function getAllBooks(query = {}) {
   let {
@@ -122,13 +107,7 @@ async function getAllBooks(query = {}) {
 
   const filter = {};
 
-  /*
-   * Tìm theo:
-   * - Mã sách
-   * - Tên sách
-   * - Tác giả
-   * - Thể loại
-   */
+  
   if (keyword) {
     const safeKeyword = escapeRegex(keyword);
 
@@ -160,7 +139,7 @@ async function getAllBooks(query = {}) {
     ];
   }
 
-  // Lọc theo thể loại
+
   if (category) {
     filter.category = {
       $regex: escapeRegex(category),
@@ -168,13 +147,6 @@ async function getAllBooks(query = {}) {
     };
   }
 
-  /*
-   * Lọc nhà xuất bản.
-   *
-   * Hỗ trợ cả:
-   * - ObjectId nhà xuất bản.
-   * - Tên nhà xuất bản.
-   */
   if (publisher) {
     if (mongoose.isValidObjectId(publisher)) {
       filter.publisher = publisher;
@@ -257,11 +229,6 @@ async function getAllBooks(query = {}) {
   };
 }
 
-/* ==================================================
-   GET /api/books/:id
-   LẤY CHI TIẾT SÁCH
-================================================== */
-
 async function getBookById(id) {
   validateObjectId(id, "Mã sách không hợp lệ");
 
@@ -276,10 +243,6 @@ async function getBookById(id) {
   return book;
 }
 
-/* ==================================================
-   POST /api/books
-   THÊM SÁCH
-================================================== */
 
 async function createBook(data = {}) {
   const title = String(data.title || "").trim();
@@ -308,15 +271,6 @@ async function createBook(data = {}) {
     throw new Error("Vui lòng nhập thể loại");
   }
 
-  /*
-   * Frontend chỉ cần gửi tên nhà xuất bản.
-   *
-   * Có nhà xuất bản:
-   * → Dùng ObjectId hiện có.
-   *
-   * Chưa có:
-   * → Tự tạo nhà xuất bản mới.
-   */
   const publisher = await resolvePublisher(publisherValue);
 
   const bookCode = await generateCode("book", "BOOK", 3);
@@ -344,10 +298,6 @@ async function createBook(data = {}) {
     .lean();
 }
 
-/* ==================================================
-   PUT /api/books/:id
-   CẬP NHẬT SÁCH
-================================================== */
 
 async function updateBook(id, data = {}) {
   validateObjectId(id, "Mã sách không hợp lệ");
@@ -388,9 +338,6 @@ async function updateBook(id, data = {}) {
     book.category = category;
   }
 
-  /*
-   * Cập nhật nhà xuất bản bằng tên hoặc ObjectId.
-   */
   if (data.publisherName !== undefined || data.publisher !== undefined) {
     const publisherValue = data.publisherName ?? data.publisher ?? "";
 
@@ -399,19 +346,11 @@ async function updateBook(id, data = {}) {
     book.publisher = publisher._id;
   }
 
-  /*
-   * Cập nhật đơn giá.
-   */
   if (data.price !== undefined) {
     book.price = validatePrice(data.price);
   }
 
-  /*
-   * Dùng publishYear thống nhất với model.
-   *
-   * publicationYear chỉ được hỗ trợ tạm thời
-   * để tương thích với frontend cũ.
-   */
+ 
   if (data.publishYear !== undefined || data.publicationYear !== undefined) {
     const publishYearValue = data.publishYear ?? data.publicationYear;
 
@@ -426,10 +365,6 @@ async function updateBook(id, data = {}) {
     book.image = String(data.image || "").trim();
   }
 
-  /*
-   * Cập nhật số lượng sách và giữ đúng số
-   * lượng sách hiện đang được mượn.
-   */
   if (data.quantity !== undefined) {
     const newQuantity = validateQuantity(data.quantity);
 
@@ -456,11 +391,6 @@ async function updateBook(id, data = {}) {
     .populate("publisher", "publisherCode publisherName email phone address")
     .lean();
 }
-
-/* ==================================================
-   DELETE /api/books/:id
-   XÓA SÁCH VĨNH VIỄN
-================================================== */
 
 async function deleteBook(id) {
   validateObjectId(id, "Mã sách không hợp lệ");

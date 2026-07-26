@@ -107,21 +107,12 @@ const routes = [
         path: "books/create",
         name: "book-create",
         component: BookFormView,
-
-        meta: {
-          adminOnly: true,
-        },
       },
 
       {
         path: "books/:id/edit",
         name: "book-edit",
         component: BookFormView,
-
-        meta: {
-          adminOnly: true,
-        },
-
         props: true,
       },
 

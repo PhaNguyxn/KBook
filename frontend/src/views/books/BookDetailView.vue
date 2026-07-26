@@ -230,7 +230,6 @@ onMounted(() => {
         </button>
 
         <div
-          v-if="isAdmin"
           class="header-actions"
         >
           <button

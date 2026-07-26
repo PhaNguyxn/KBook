@@ -698,7 +698,6 @@ onMounted(async () => {
         </div>
 
         <RouterLink
-          v-if="isAdmin"
           to="/books/create"
           class="add-book-button"
         >
@@ -1217,7 +1216,6 @@ onMounted(async () => {
                   </RouterLink>
 
                   <RouterLink
-                    v-if="isAdmin"
                     :to="`/books/${book._id}/edit`"
                     class="action-button action-edit"
                     title="Cập nhật sách"
@@ -1228,7 +1226,6 @@ onMounted(async () => {
                   </RouterLink>
 
                   <button
-                    v-if="isAdmin"
                     type="button"
                     class="action-button action-delete"
                     title="Xóa sách"

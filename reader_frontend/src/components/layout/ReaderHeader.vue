@@ -319,7 +319,6 @@ onMounted(() => {
 
           <span class="brand-text">
             <strong>KBook</strong>
-            <small>Reader</small>
           </span>
         </RouterLink>
 
