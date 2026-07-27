@@ -160,8 +160,24 @@ function getBook(item) {
     item?.book ||
     item?.bookId ||
     item?.bookSnapshot ||
+    item?.bookInfo ||
     {}
   );
+}
+
+function getBorrowItems(
+  borrow,
+) {
+  const items =
+    borrow?.items ||
+    borrow?.details ||
+    borrow?.borrowDetails ||
+    borrow?.books ||
+    [];
+
+  return Array.isArray(items)
+    ? items
+    : [];
 }
 
 function getImageUrl(image) {
@@ -191,25 +207,26 @@ function getImageUrl(image) {
 }
 
 function totalBooks(borrow) {
+  const backendTotal =
+    Number(borrow?.totalBooks);
+
   if (
     Number.isFinite(
-      Number(borrow.totalBooks),
+      backendTotal,
     ) &&
-    Number(borrow.totalBooks) > 0
+    backendTotal >= 0
   ) {
-    return Number(
-      borrow.totalBooks,
-    );
+    return backendTotal;
   }
 
-  return (
-    borrow.items ||
-    borrow.details ||
-    []
+  return getBorrowItems(
+    borrow,
   ).reduce(
     (total, item) =>
       total +
-      Number(item.quantity || 1),
+      Number(
+        item?.quantity || 0,
+      ),
     0,
   );
 }
@@ -629,15 +646,13 @@ onMounted(loadHistory);
                     <h3>Danh sách sách</h3>
 
                     <div
-                      v-for="item in
-                        borrow.items ||
-                        borrow.details ||
-                        []"
-                      :key="
-                        item._id ||
-                        getBook(item)._id
-                      "
-                      class="borrowed-book"
+                        v-for="item in
+                            getBorrowItems(borrow)"
+                        :key="
+                            item._id ||
+                            getBook(item)._id
+                        "
+                        class="borrowed-book"
                     >
                       <div class="book-cover">
                         <img

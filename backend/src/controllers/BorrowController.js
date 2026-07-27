@@ -84,41 +84,6 @@ const returnBorrow = async (req, res) => {
   }
 };
 
-// Danh sách phiếu mượn của độc giả đăng nhập
-const getMyBorrows = async (
-  req,
-  res,
-) => {
-  try {
-    const result =
-      await BorrowService
-        .getAllBorrows({
-          ...req.query,
-
-          reader:
-            req.readerId.toString(),
-        });
-
-    return res.status(200).json({
-      success: true,
-
-      message:
-        "Lấy lịch sử mượn thành công",
-
-      data: result,
-    });
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-
-      message:
-        error.message ||
-        "Không thể lấy lịch sử mượn",
-    });
-  }
-};
-
-// Chi tiết phiếu mượn của độc giả đăng nhập
 const getMyBorrowById = async (
   req,
   res,
@@ -161,11 +126,26 @@ const getMyBorrowById = async (
   }
 };
 
+async function getMyHistory(req, res, next) {
+  try {
+    const result = await BorrowService.getMyHistory(req.readerId, req.query);
+
+    return res.status(200).json({
+      success: true,
+      message: "Lấy lịch sử mượn sách thành công",
+
+      data: result,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getAllBorrows,
   getBorrowById,
   createBorrow,
   returnBorrow,
-  getMyBorrows,
   getMyBorrowById,
+  getMyHistory,
 };

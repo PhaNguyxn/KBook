@@ -53,9 +53,7 @@ const createEmployee = async (req, res) => {
 
 const updateEmployee = async (req, res) => {
   try {
-    /*
-     * Không cho người dùng tự khóa mình.
-     */
+  
     if (
       req.params.id === req.user.id &&
       (req.body.status === false || req.body.status === "false")
@@ -66,9 +64,6 @@ const updateEmployee = async (req, res) => {
       });
     }
 
-    /*
-     * Không cho admin tự hạ quyền.
-     */
     if (req.params.id === req.user.id && req.body.role === "staff") {
       return res.status(400).json({
         success: false,

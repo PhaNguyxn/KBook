@@ -191,10 +191,7 @@ async function registerReader(data = {}) {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  /*
-   * Thử lại trong trường hợp hai yêu cầu
-   * đăng ký chạy đồng thời và trùng mã.
-   */
+
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       const readerCode = await generateReaderCode();
@@ -329,10 +326,6 @@ async function updateReaderProfile(readerId, data = {}) {
     throw new Error("Không tìm thấy độc giả");
   }
 
-  /*
-   * Không xử lý readerCode, password,
-   * status từ payload cập nhật hồ sơ.
-   */
 
   if (data.lastName !== undefined) {
     const lastName = normalizeText(data.lastName);

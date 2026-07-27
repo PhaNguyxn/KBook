@@ -39,9 +39,6 @@ function populateBorrowRequest(query, options = {}) {
   return query;
 }
 
-/* =========================================
-   TỰ SINH MÃ YÊU CẦU
-========================================= */
 
 async function generateRequestCode() {
   const date = new Date();
@@ -67,9 +64,6 @@ async function generateRequestCode() {
   return `REQ${datePart}${String(count + 1).padStart(4, "0")}`;
 }
 
-/* =========================================
-   DANH SÁCH CHO NHÂN VIÊN
-========================================= */
 
 async function getAllBorrowRequests(query = {}) {
   let { page = 1, limit = 10, keyword = "", status = "" } = query;
@@ -174,10 +168,6 @@ async function getAllBorrowRequests(query = {}) {
   };
 }
 
-/* =========================================
-   CHI TIẾT CHO NHÂN VIÊN
-========================================= */
-
 async function getBorrowRequestById(id) {
   validateObjectId(id, "Mã yêu cầu không hợp lệ");
 
@@ -194,9 +184,6 @@ async function getBorrowRequestById(id) {
   return request;
 }
 
-/* =========================================
-   DANH SÁCH CỦA ĐỘC GIẢ ĐANG ĐĂNG NHẬP
-========================================= */
 
 async function getMyBorrowRequests(readerId, query = {}) {
   validateObjectId(readerId, "Mã độc giả không hợp lệ");
@@ -272,9 +259,6 @@ async function getMyBorrowRequests(readerId, query = {}) {
   };
 }
 
-/* =========================================
-   CHI TIẾT YÊU CẦU CỦA ĐỘC GIẢ
-========================================= */
 
 async function getMyBorrowRequestById(readerId, requestId) {
   validateObjectId(readerId, "Mã độc giả không hợp lệ");
@@ -301,9 +285,6 @@ async function getMyBorrowRequestById(readerId, requestId) {
   return request;
 }
 
-/* =========================================
-   TẠO YÊU CẦU MƯỢN
-========================================= */
 
 async function createBorrowRequest(data = {}) {
   const { readerId, items = [], expectedBorrowDate, dueDate, note } = data;
@@ -386,10 +367,6 @@ async function createBorrowRequest(data = {}) {
     });
   }
 
-  /*
-   * Ngăn độc giả gửi nhiều yêu cầu đang chờ
-   * chứa cùng một đầu sách.
-   */
   const pendingRequest = await BorrowRequest.findOne({
     reader: readerId,
     status: "pending",
@@ -406,10 +383,6 @@ async function createBorrowRequest(data = {}) {
 
   let createdRequest = null;
 
-  /*
-   * Thử lại khi hai request được tạo đồng thời
-   * và trùng requestCode.
-   */
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       const requestCode = await generateRequestCode();
@@ -442,9 +415,6 @@ async function createBorrowRequest(data = {}) {
   return getMyBorrowRequestById(readerId, createdRequest._id);
 }
 
-/* =========================================
-   HỦY YÊU CẦU CỦA ĐỘC GIẢ
-========================================= */
 
 async function cancelMyBorrowRequest(readerId, requestId) {
   validateObjectId(readerId, "Mã độc giả không hợp lệ");
@@ -472,9 +442,6 @@ async function cancelMyBorrowRequest(readerId, requestId) {
   return getMyBorrowRequestById(readerId, request._id);
 }
 
-/* =========================================
-   DUYỆT YÊU CẦU
-========================================= */
 
 async function approveBorrowRequest(id, employeeId) {
   validateObjectId(id, "Mã yêu cầu không hợp lệ");

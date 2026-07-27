@@ -167,34 +167,42 @@ async function getAllBooks(query = {}) {
   const sortOptions = {
     latest: {
       createdAt: -1,
+      _id: -1,
     },
 
     oldest: {
       createdAt: 1,
+      _id: 1,
     },
 
     "title-asc": {
       title: 1,
+      _id: 1,
     },
 
     "title-desc": {
       title: -1,
+      _id: -1,
     },
 
     "available-asc": {
       available: 1,
+      _id: 1,
     },
 
     "available-desc": {
       available: -1,
+      _id: -1,
     },
 
     "price-asc": {
       price: 1,
+      _id: 1,
     },
 
     "price-desc": {
       price: -1,
+      _id: -1,
     },
   };
 

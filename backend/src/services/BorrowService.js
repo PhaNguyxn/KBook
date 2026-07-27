@@ -29,6 +29,8 @@ const generateBorrowCode = async () => {
   return `PM${String(nextNumber).padStart(4, "0")}`;
 };
 
+
+
 // =========================
 // Tạo phiếu mượn
 // =========================
@@ -420,9 +422,206 @@ const returnBorrow = async (id) => {
     .populate("employee", "-password");
 };
 
+function escapeRegex(value = "") {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function getMyHistory(readerId, query = {}) {
+  if (!mongoose.isValidObjectId(readerId)) {
+    throw new Error("Mã độc giả không hợp lệ");
+  }
+
+  let { page = 1, limit = 8, keyword = "", status = "" } = query;
+
+  page = Math.max(Number.parseInt(page, 10) || 1, 1);
+
+  limit = Math.min(Math.max(Number.parseInt(limit, 10) || 8, 1), 50);
+
+  keyword = String(keyword || "").trim();
+
+  status = String(status || "").trim();
+
+  const filter = {
+    reader: readerId,
+  };
+
+  if (keyword) {
+    filter.borrowCode = {
+      $regex: escapeRegex(keyword),
+      $options: "i",
+    };
+  }
+
+  /*
+   * Quá hạn vẫn có trạng thái borrowing,
+   * nhưng dueDate đã nhỏ hơn ngày hiện tại.
+   */
+  if (status === "overdue") {
+    filter.status = "borrowing";
+
+    filter.dueDate = {
+      $lt: new Date(),
+    };
+  } else if (["borrowing", "returned"].includes(status)) {
+    filter.status = status;
+  }
+
+  const total = await Borrow.countDocuments(filter);
+
+  const totalPages = total > 0 ? Math.ceil(total / limit) : 0;
+
+  const currentPage = totalPages > 0 ? Math.min(page, totalPages) : 1;
+
+  const borrows = await Borrow.find(filter)
+    .populate("employee", "employeeCode fullName username")
+    .sort({
+      borrowDate: -1,
+      _id: -1,
+    })
+    .skip((currentPage - 1) * limit)
+    .limit(limit)
+    .lean();
+
+  const borrowIds = borrows.map((borrow) => borrow._id);
+
+  /*
+   * Lấy toàn bộ chi tiết sách của các
+   * phiếu trên trang hiện tại chỉ bằng
+   * một truy vấn.
+   */
+  const details =
+    borrowIds.length > 0
+      ? await BorrowDetail.find({
+          borrow: {
+            $in: borrowIds,
+          },
+        })
+          .populate(
+            "book",
+            [
+              "bookCode",
+              "title",
+              "author",
+              "category",
+              "image",
+              "price",
+              "publishYear",
+            ].join(" "),
+          )
+          .sort({
+            createdAt: 1,
+            _id: 1,
+          })
+          .lean()
+      : [];
+
+  /*
+   * Nhóm chi tiết theo mã phiếu mượn.
+   */
+  const detailsByBorrow = new Map();
+
+  details.forEach((detail) => {
+    const borrowKey = String(detail.borrow);
+
+    if (!detailsByBorrow.has(borrowKey)) {
+      detailsByBorrow.set(borrowKey, []);
+    }
+
+    detailsByBorrow.get(borrowKey).push(detail);
+  });
+
+  /*
+   * Gắn mảng items vào từng phiếu để
+   * ReaderHistoryView có thể sử dụng.
+   */
+  const history = borrows.map((borrow) => {
+    const items = detailsByBorrow.get(String(borrow._id)) || [];
+
+    const totalBooks = items.reduce(
+      (sum, item) => sum + Number(item.quantity || 0),
+      0,
+    );
+
+    return {
+      ...borrow,
+      items,
+      totalBooks,
+
+      isOverdue:
+        borrow.status === "borrowing" &&
+        Boolean(borrow.dueDate && new Date(borrow.dueDate) < new Date()),
+    };
+  });
+
+  /*
+   * Thống kê trên toàn bộ lịch sử của
+   * độc giả, không chỉ trang hiện tại.
+   */
+  const now = new Date();
+
+  const [totalBorrowRecords, borrowing, returned, overdue] = await Promise.all([
+    Borrow.countDocuments({
+      reader: readerId,
+    }),
+
+    Borrow.countDocuments({
+      reader: readerId,
+      status: "borrowing",
+
+      $or: [
+        {
+          dueDate: {
+            $gte: now,
+          },
+        },
+        {
+          dueDate: null,
+        },
+      ],
+    }),
+
+    Borrow.countDocuments({
+      reader: readerId,
+      status: "returned",
+    }),
+
+    Borrow.countDocuments({
+      reader: readerId,
+      status: "borrowing",
+      dueDate: {
+        $lt: now,
+      },
+    }),
+  ]);
+
+  return {
+    history,
+
+    pagination: {
+      total,
+      page: currentPage,
+      limit,
+      totalPages,
+
+      hasPreviousPage: currentPage > 1,
+
+      hasNextPage: currentPage < totalPages,
+    },
+
+    summary: {
+      total: totalBorrowRecords,
+
+      borrowing,
+      returned,
+      overdue,
+    },
+  };
+}
+
 module.exports = {
   createBorrow,
   getAllBorrows,
   getBorrowById,
   returnBorrow,
+  getMyHistory,
 };

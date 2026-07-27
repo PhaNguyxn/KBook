@@ -24,9 +24,6 @@ router.get("/debug-readers", async (req, res) => {
   });
 });
 
-/* =========================================
-   KIỂM TRA ROUTER
-========================================= */
 
 router.get("/test", (req, res) => {
   return res.status(200).json({
@@ -35,31 +32,19 @@ router.get("/test", (req, res) => {
   });
 });
 
-/* =========================================
-   API CÔNG KHAI
-========================================= */
 
-// POST /api/reader-auth/register
 router.post("/register", readerAuthController.register);
 
-// POST /api/reader-auth/login
 router.post("/login", readerAuthController.login);
 
-/* =========================================
-   API YÊU CẦU ĐĂNG NHẬP
-========================================= */
-
-// GET /api/reader-auth/profile
 router.get("/profile", readerAuthMiddleware, readerAuthController.getProfile);
 
-// PUT /api/reader-auth/profile
 router.put(
   "/profile",
   readerAuthMiddleware,
   readerAuthController.updateProfile,
 );
 
-// PUT /api/reader-auth/change-password
 router.put(
   "/change-password",
   readerAuthMiddleware,

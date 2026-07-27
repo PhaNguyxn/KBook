@@ -69,6 +69,8 @@ function normalizeCartItem(item = {}) {
 
     author: item.author || item.book?.author || "",
 
+    price: Number(item.price ?? item.book?.price ?? 0),
+
     category: item.category || item.book?.category || "",
 
     image: item.image || item.book?.image || "",

@@ -12,6 +12,9 @@ import {
   useBorrowCartStore,
 } from "@/stores/borrowCart";
 
+import { formatCurrency } from
+  "@/utils/formatCurrency";
+
 const props = defineProps({
   book: {
     type: Object,
@@ -235,20 +238,20 @@ function addToCart() {
       </span>
 
       <div class="quantity-information">
-        <span>
-          Tổng:
-          <strong>
-            {{ quantity }}
-          </strong>
-        </span>
+            <span class="price-information">
+                Giá:
+                <strong>
+                {{ formatCurrency(book.price) }}
+                </strong>
+            </span>
 
-        <span>
-          Còn:
-          <strong>
-            {{ available }}
-          </strong>
-        </span>
-      </div>
+            <span class="available-information">
+                Còn:
+                <strong>
+                {{ available }}
+                </strong>
+            </span>
+        </div>
 
       <button
         type="button"
@@ -301,6 +304,52 @@ function addToCart() {
   box-shadow:
     0 14px 35px
     rgb(15 23 42 / 9%);
+}
+
+.quantity-information {
+  margin-top: 14px;
+  padding: 13px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-radius: 11px;
+  background: #f4f8f5;
+}
+
+.quantity-information > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #7b8a82;
+  font-size: 14px;
+}
+
+.price-information strong {
+  color: #07845a;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.available-information strong {
+  color: #0c653d;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+@media (max-width: 600px) {
+  .quantity-information {
+    padding: 12px;
+  }
+
+  .quantity-information > span {
+    font-size: 13px;
+  }
+
+  .price-information strong,
+  .available-information strong {
+    font-size: 15px;
+  }
 }
 
 .cover-button {

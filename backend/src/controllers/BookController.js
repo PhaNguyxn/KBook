@@ -37,9 +37,6 @@ function buildBookPayload(req) {
     delete payload.quantity;
   }
 
-  /*
-   * Chuẩn hóa các trường văn bản.
-   */
   if (payload.title !== undefined) {
     payload.title = String(payload.title).trim();
   }
@@ -67,9 +64,6 @@ function buildBookPayload(req) {
   return payload;
 }
 
-// ==================================================
-// LẤY DANH SÁCH SÁCH
-// ==================================================
 async function getAllBooks(req, res) {
   try {
     const result = await BookService.getAllBooks(req.query);
@@ -89,9 +83,6 @@ async function getAllBooks(req, res) {
   }
 }
 
-// ==================================================
-// LẤY CHI TIẾT SÁCH
-// ==================================================
 async function getBookById(req, res) {
   try {
     const book = await BookService.getBookById(req.params.id);
@@ -111,9 +102,6 @@ async function getBookById(req, res) {
   }
 }
 
-// ==================================================
-// THÊM SÁCH
-// ==================================================
 async function createBook(req, res) {
   try {
     const payload = buildBookPayload(req);
@@ -135,9 +123,6 @@ async function createBook(req, res) {
   }
 }
 
-// ==================================================
-// CẬP NHẬT SÁCH
-// ==================================================
 async function updateBook(req, res) {
   try {
     const payload = buildBookPayload(req);
@@ -159,9 +144,6 @@ async function updateBook(req, res) {
   }
 }
 
-// ==================================================
-// XÓA SÁCH
-// ==================================================
 async function deleteBook(req, res) {
   try {
     const book = await BookService.deleteBook(req.params.id);

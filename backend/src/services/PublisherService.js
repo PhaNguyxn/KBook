@@ -39,9 +39,6 @@ function normalizePublisherName(value = "") {
   return String(value).trim().toLocaleLowerCase("vi-VN");
 }
 
-/**
- * Trả về tên field gây lỗi duplicate key.
- */
 function getDuplicateField(error) {
   if (!error || error.code !== 11000) {
     return "";
@@ -58,10 +55,6 @@ function getDuplicateField(error) {
   return "";
 }
 
-/**
- * Chuyển lỗi duplicate key của MongoDB
- * thành thông báo dễ hiểu.
- */
 function throwDuplicateError(error) {
   const duplicateField = getDuplicateField(error);
 
@@ -198,14 +191,6 @@ const getAllPublishers = async (query = {}) => {
 
   const filter = {};
 
-  /*
-   * Tìm kiếm theo:
-   * - Mã nhà xuất bản
-   * - Tên nhà xuất bản
-   * - Email
-   * - Số điện thoại
-   * - Địa chỉ
-   */
   if (keyword) {
     const safeKeyword = escapeRegex(keyword);
 
@@ -281,10 +266,6 @@ const getAllPublishers = async (query = {}) => {
 
   const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
 
-  /*
-   * Tránh trường hợp đang ở trang lớn hơn
-   * tổng số trang sau khi dữ liệu thay đổi.
-   */
   const currentPage = totalPages > 0 ? Math.min(page, totalPages) : 1;
 
   const skip = (currentPage - 1) * limit;
@@ -346,9 +327,7 @@ const createPublisher = async (data = {}) => {
     throw new Error("Vui lòng nhập tên nhà xuất bản");
   }
 
-  /*
-   * Kiểm tra trùng trước khi sinh mã.
-   */
+
   const existedPublisher = await checkPublisherDuplicate({
     publisherName,
     email,
@@ -361,10 +340,7 @@ const createPublisher = async (data = {}) => {
     phone,
   });
 
-  /*
-   * Mã được sinh hoàn toàn ở backend.
-   * Frontend không cần gửi publisherCode.
-   */
+ 
   const publisherCode = await generatePublisherCode();
 
   try {
@@ -404,12 +380,6 @@ const updatePublisher = async (id, data = {}) => {
     throw new Error("Không tìm thấy nhà xuất bản");
   }
 
-  /*
-   * Không cập nhật publisherCode.
-   *
-   * Mã nhà xuất bản được tự sinh khi tạo
-   * và giữ nguyên trong suốt quá trình sử dụng.
-   */
 
   if (data.publisherName !== undefined || data.name !== undefined) {
     const publisherName = String(data.publisherName ?? data.name ?? "").trim();
@@ -510,10 +480,6 @@ const deletePublisher = async (id) => {
     );
   }
 
-  /*
-   * Không cho xóa nhà xuất bản nếu vẫn còn
-   * sách đang tham chiếu đến nhà xuất bản này.
-   */
   const relatedBook =
     await Book.exists({
       publisher: id,
@@ -554,10 +520,6 @@ const findOrCreatePublisherByName = async (
     );
   }
 
-  /*
-   * Tìm chính xác theo tên nhưng không phân biệt
-   * chữ hoa và chữ thường.
-   */
   const existedPublisher =
     await Publisher.findOne({
       publisherName: {
@@ -573,9 +535,6 @@ const findOrCreatePublisherByName = async (
     return existedPublisher;
   }
 
-  /*
-   * Chưa tồn tại thì tự tạo nhà xuất bản mới.
-   */
   const publisherCode =
     await generatePublisherCode();
 
@@ -587,10 +546,6 @@ const findOrCreatePublisherByName = async (
       status: true,
     });
   } catch (error) {
-    /*
-     * Trường hợp hai yêu cầu cùng tạo một tên,
-     * thử tìm lại trước khi báo lỗi.
-     */
     const publisher =
       await Publisher.findOne({
         publisherName: {

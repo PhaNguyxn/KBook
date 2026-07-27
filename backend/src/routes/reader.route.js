@@ -10,7 +10,6 @@ const { isAdmin, isStaffOrAdmin } = require("../middleware/role.middleware");
 
 router.use(verifyToken);
 
-// Admin và staff được xem để lập phiếu
 router.get("/", isStaffOrAdmin, ReaderController.getAllReaders);
 
 router.get("/:id", isStaffOrAdmin, ReaderController.getReaderById);

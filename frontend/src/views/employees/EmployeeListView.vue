@@ -447,10 +447,6 @@ async function deleteEmployee(employee) {
       0,
     );
 
-    /*
-     * Nếu vừa xóa bản ghi cuối của trang,
-     * trở về trang trước.
-     */
     if (
       employees.value.length === 0 &&
       filters.page > 1

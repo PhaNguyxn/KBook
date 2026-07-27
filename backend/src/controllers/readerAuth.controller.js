@@ -1,9 +1,5 @@
 const readerAuthService = require("../services/readerAuth.service");
 
-/* =========================================
-   ĐĂNG KÝ
-========================================= */
-
 async function register(req, res) {
   try {
     const reader = await readerAuthService.registerReader(req.body);
@@ -25,9 +21,6 @@ async function register(req, res) {
   }
 }
 
-/* =========================================
-   ĐĂNG NHẬP
-========================================= */
 
 async function login(req, res) {
   try {
@@ -50,9 +43,6 @@ async function login(req, res) {
   }
 }
 
-/* =========================================
-   XEM HỒ SƠ
-========================================= */
 
 async function getProfile(req, res) {
   try {
@@ -73,9 +63,6 @@ async function getProfile(req, res) {
   }
 }
 
-/* =========================================
-   CẬP NHẬT HỒ SƠ
-========================================= */
 
 async function updateProfile(req, res) {
   try {
@@ -102,9 +89,6 @@ async function updateProfile(req, res) {
   }
 }
 
-/* =========================================
-   ĐỔI MẬT KHẨU
-========================================= */
 
 async function changePassword(req, res) {
   try {

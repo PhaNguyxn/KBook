@@ -1,9 +1,5 @@
 const BorrowRequestService = require("../services/BorrowRequestService");
 
-/* =========================================
-   API DÀNH CHO NHÂN VIÊN
-========================================= */
-
 async function getAll(req, res) {
   try {
     const result = await BorrowRequestService.getAllBorrowRequests(req.query);
@@ -105,9 +101,6 @@ async function reject(req, res) {
   }
 }
 
-/* =========================================
-   API DÀNH CHO ĐỘC GIẢ
-========================================= */
 
 async function createForReader(req, res) {
   try {

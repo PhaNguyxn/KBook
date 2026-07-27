@@ -1,8 +1,5 @@
 const PublisherService = require("../services/PublisherService");
 
-// ==================================================
-// GET /api/publishers
-// ==================================================
 const getAllPublishers = async (req, res) => {
   try {
     const result = await PublisherService.getAllPublishers(req.query);
@@ -22,9 +19,7 @@ const getAllPublishers = async (req, res) => {
   }
 };
 
-// ==================================================
-// GET /api/publishers/:id
-// ==================================================
+
 const getPublisherById = async (req, res) => {
   try {
     const publisher = await PublisherService.getPublisherById(req.params.id);
@@ -42,9 +37,6 @@ const getPublisherById = async (req, res) => {
   }
 };
 
-// ==================================================
-// POST /api/publishers
-// ==================================================
 const createPublisher = async (req, res) => {
   try {
     const publisher = await PublisherService.createPublisher(req.body);
@@ -64,9 +56,6 @@ const createPublisher = async (req, res) => {
   }
 };
 
-// ==================================================
-// PUT /api/publishers/:id
-// ==================================================
 const updatePublisher = async (req, res) => {
   try {
     const publisher = await PublisherService.updatePublisher(
@@ -89,9 +78,6 @@ const updatePublisher = async (req, res) => {
   }
 };
 
-// ==================================================
-// DELETE /api/publishers/:id
-// ==================================================
 const deletePublisher = async (req, res) => {
   try {
     const publisher = await PublisherService.deletePublisher(req.params.id);

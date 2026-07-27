@@ -22,6 +22,9 @@ import {
   useBorrowCartStore,
 } from "@/stores/borrowCart";
 
+import { formatCurrency } from
+  "@/utils/formatCurrency";
+
 const route = useRoute();
 const router = useRouter();
 
@@ -121,10 +124,6 @@ const publisherName = computed(() => {
     );
   }
 
-  /*
-   * Publisher chưa được populate
-   * và đang là ObjectId.
-   */
   if (
     /^[a-f\d]{24}$/i.test(
       String(publisher),
@@ -395,6 +394,16 @@ onMounted(() => {
                 {{ book.author }}
               </strong>
             </p>
+
+            <div class="detail-price">
+                <span>
+                Giá sách
+                </span>
+
+                <strong>
+                {{ formatCurrency(book.price) }}
+                </strong>
+            </div>
 
             <div class="quick-meta">
               <span>
@@ -1364,6 +1373,42 @@ onMounted(() => {
   .related-grid {
     grid-template-columns:
       repeat(2, 1fr);
+  }
+}
+
+.detail-price {
+  margin: 18px 0;
+  padding: 15px 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid #dceae2;
+  border-radius: 13px;
+  background: #f0faf5;
+}
+
+.detail-price span {
+  color: #66786e;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.detail-price strong {
+  color: #07845a;
+  font-size: 25px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+@media (max-width: 600px) {
+  .detail-price {
+    width: 100%;
+    margin: 14px 0;
+    justify-content: space-between;
+  }
+
+  .detail-price strong {
+    font-size: 22px;
   }
 }
 </style>

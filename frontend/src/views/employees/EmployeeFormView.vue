@@ -411,11 +411,6 @@ async function handleSubmit() {
   submitting.value = true;
   clearMessages();
 
-  /*
-   * Không gửi employeeCode.
-   * Backend sẽ tự sinh mã khi tạo mới.
-   * Khi cập nhật, mã cũ được giữ nguyên.
-   */
   const payload = {
     fullName:
       form.fullName.trim(),
@@ -461,10 +456,6 @@ async function handleSubmit() {
         response?.data ??
         null;
 
-      /*
-       * Nếu người dùng đang sửa chính
-       * tài khoản hiện tại thì cập nhật store.
-       */
       if (
         isCurrentEmployee.value &&
         updatedEmployee

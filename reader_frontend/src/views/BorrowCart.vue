@@ -28,6 +28,8 @@ import {
   useReaderAuthStore,
 } from "@/stores/readerAuth";
 
+import { formatCurrency } from "@/utils/formatCurrency";
+
 const router = useRouter();
 
 const cartStore =
@@ -311,6 +313,34 @@ async function loadRecommendations() {
   }
 }
 
+const totalBookValue = computed(() => {
+  return cartStore.items.reduce(
+    (total, item) => {
+      const price =
+        Number(item.price) || 0;
+
+      const quantity =
+        Number(item.quantity) || 1;
+
+      return (
+        total +
+        price * quantity
+      );
+    },
+    0,
+  );
+});
+
+function getItemTotal(item) {
+  const price =
+    Number(item?.price) || 0;
+
+  const quantity =
+    Number(item?.quantity) || 1;
+
+  return price * quantity;
+}
+
 onMounted(() => {
   loadRecommendations();
 });
@@ -368,6 +398,7 @@ onMounted(() => {
           <main class="cart-list-card">
             <div class="cart-table-header">
               <span>Sách</span>
+              <span>Đơn giá</span>
               <span>Số lượng</span>
               <span>Thời gian mượn</span>
               <span>Thao tác</span>
@@ -415,6 +446,29 @@ onMounted(() => {
                     bản
                   </em>
                 </div>
+              </div>
+
+              <div class="cart-price">
+                <span class="mobile-field-label">
+                  Đơn giá
+                </span>
+
+                <strong>
+                  {{ formatCurrency(item.price) }}
+                </strong>
+
+                <small
+                  v-if="
+                    Number(item.quantity) > 1
+                  "
+                >
+                  Thành tiền:
+                  {{
+                    formatCurrency(
+                      getItemTotal(item),
+                    )
+                  }}
+                </small>
               </div>
 
               <div class="quantity-control">
@@ -523,6 +577,20 @@ onMounted(() => {
               <strong>
                 {{ totalBooks }}
                 <small>quyển</small>
+              </strong>
+            </div>
+
+            <div class="value-summary">
+              <span>
+                Tổng giá trị
+              </span>
+
+              <strong>
+                {{
+                  formatCurrency(
+                    totalBookValue,
+                  )
+                }}
               </strong>
             </div>
 
@@ -783,12 +851,13 @@ onMounted(() => {
 .cart-item {
   display: grid;
   grid-template-columns:
-    minmax(0, 1fr)
-    115px
-    135px
-    45px;
+    minmax(310px, 1.8fr)
+    145px
+    130px
+    150px
+    70px;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
 }
 
 .cart-table-header {
@@ -811,6 +880,74 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+.cart-price {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cart-price strong {
+  color: #07845a;
+  font-size: 16px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.cart-price small {
+  color: #7b8a82;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.mobile-field-label {
+  display: none;
+  color: #809087;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.value-summary {
+  margin-top: 10px;
+  padding: 15px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  border: 1px solid #d9e9df;
+  border-radius: 12px;
+  background: #f0faf5;
+}
+
+.value-summary > span {
+  color: #65766d;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.value-summary > strong {
+  color: #07845a;
+  font-size: 21px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.price-notice {
+  margin: 10px 0 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: #7b8a82;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.price-notice i {
+  margin-top: 2px;
+  color: #0c653d;
 }
 
 .cart-cover {
@@ -1182,6 +1319,81 @@ onMounted(() => {
 
   .continue-button {
     justify-content: center;
+  }
+}
+
+@media (max-width: 900px) {
+  .cart-table-header {
+    display: none;
+  }
+
+  .cart-item {
+    padding: 18px;
+    display: grid;
+    grid-template-columns:
+      minmax(0, 1fr)
+      auto;
+    gap: 16px;
+  }
+
+  .cart-book {
+    grid-column: 1 / -1;
+  }
+
+  .cart-price {
+    padding: 11px 13px;
+    border-radius: 10px;
+    background: #f2f8f4;
+  }
+
+  .mobile-field-label {
+    display: block;
+  }
+
+  .quantity-control {
+    align-self: center;
+  }
+
+  .cart-item > select {
+    grid-column: 1 / 2;
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .remove-button {
+    grid-column: 2 / 3;
+    align-self: center;
+  }
+}
+
+@media (max-width: 550px) {
+  .cart-item {
+    grid-template-columns: 1fr;
+  }
+
+  .cart-book,
+  .cart-price,
+  .quantity-control,
+  .cart-item > select,
+  .remove-button {
+    grid-column: 1;
+  }
+
+  .cart-price {
+    width: 100%;
+  }
+
+  .quantity-control {
+    justify-self: start;
+  }
+
+  .remove-button {
+    width: 100%;
+    min-height: 43px;
+  }
+
+  .value-summary > strong {
+    font-size: 18px;
   }
 }
 </style>

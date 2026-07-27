@@ -77,10 +77,6 @@ const getAllReaders = async (query = {}) => {
 
   limit = Math.max(Number(limit) || 10, 1);
 
-  /*
-   * Giới hạn số phần tử mỗi trang để tránh
-   * client gửi limit quá lớn.
-   */
   limit = Math.min(limit, 100);
 
   const filter = {};
@@ -149,9 +145,6 @@ const getAllReaders = async (query = {}) => {
 
   const totalPages = Math.ceil(total / limit);
 
-  /*
-   * Tránh truy cập trang lớn hơn tổng số trang.
-   */
   if (totalPages > 0 && page > totalPages) {
     page = totalPages;
   }
@@ -206,10 +199,6 @@ const createReader = async (data = {}) => {
   validateGender(gender);
   validatePhone(phone);
 
-  /*
-   * Chỉ kiểm tra trùng số điện thoại.
-   * Mã độc giả do hệ thống tự sinh.
-   */
   const existedPhone = await Reader.exists({
     phone,
   });
@@ -218,13 +207,6 @@ const createReader = async (data = {}) => {
     throw new Error("Số điện thoại đã tồn tại");
   }
 
-  /*
-   * Tự sinh mã:
-   * DG001, DG002, DG003...
-   *
-   * Vòng lặp giúp bỏ qua mã đã tồn tại
-   * nếu counter chưa đồng bộ với dữ liệu cũ.
-   */
   let readerCode;
   let codeExists = true;
 
@@ -274,10 +256,6 @@ const updateReader = async (id, data = {}) => {
     throw new Error("Không tìm thấy độc giả");
   }
 
-  /*
-   * Không sử dụng data.readerCode.
-   * Mã độc giả không được phép thay đổi.
-   */
   const firstName =
     data.firstName !== undefined
       ? normalizeText(data.firstName)
@@ -314,10 +292,7 @@ const updateReader = async (id, data = {}) => {
     birthday = validateBirthday(data.birthday);
   }
 
-  /*
-   * Kiểm tra trùng số điện thoại với
-   * các độc giả khác.
-   */
+
   if (phone !== reader.phone) {
     const phoneExist = await Reader.exists({
       phone,

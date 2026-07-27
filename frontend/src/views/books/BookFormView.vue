@@ -122,14 +122,6 @@ async function loadBook() {
     form.category =
       book.category || "";
 
-    /*
-     * Backend trả về publisher đã populate:
-     *
-     * publisher: {
-     *   _id: "...",
-     *   publisherName: "NXB Trẻ"
-     * }
-     */
     form.publisherName =
       typeof book.publisher ===
       "object"
@@ -152,10 +144,6 @@ async function loadBook() {
     currentImage.value =
       book.image || "";
 
-    /*
-     * Xóa URL nhập tay vì ảnh hiện tại
-     * đã được lưu trong currentImage.
-     */
     form.image = "";
   } catch (error) {
     errorMessage.value =
@@ -341,10 +329,6 @@ async function handleSubmit() {
       form.description.trim(),
     );
 
-    /*
-     * Chỉ gửi URL ảnh khi người dùng
-     * thực sự nhập một URL mới.
-     */
     if (form.image.trim()) {
       payload.append(
         "image",
@@ -352,10 +336,6 @@ async function handleSubmit() {
       );
     }
 
-    /*
-     * Tên field phải trùng với multer:
-     * bookUpload.single("imageFile")
-     */
     if (selectedImage.value) {
       payload.append(
         "imageFile",
