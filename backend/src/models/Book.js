@@ -76,6 +76,12 @@ const bookSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+
+    languge: {
+      type: String,
+      trim: true,
+      default: "Tiếng Việt",
+    }
   },
   {
     timestamps: true,

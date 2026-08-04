@@ -348,18 +348,6 @@ onMounted(() => {
                   :alt="book.title"
                 />
               </button>
-
-              <button type="button">
-                <i
-                  class="bi bi-file-text"
-                />
-              </button>
-
-              <button type="button">
-                <i
-                  class="bi bi-card-text"
-                />
-              </button>
             </div>
           </div>
 
@@ -564,15 +552,6 @@ onMounted(() => {
                 <i class="bi bi-bag-plus" />
 
                 Thêm vào giỏ mượn
-              </button>
-
-              <button
-                type="button"
-                class="secondary-button"
-              >
-                <i class="bi bi-heart" />
-
-                Yêu thích
               </button>
             </div>
           </div>
@@ -1132,7 +1111,7 @@ onMounted(() => {
 .short-description p {
   margin: 0;
   color: #64748b;
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.8;
 }
 
@@ -1226,7 +1205,7 @@ onMounted(() => {
 .description-content p,
 .description-content li {
   color: #64748b;
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.9;
 }
 
@@ -1298,7 +1277,7 @@ onMounted(() => {
   border-radius: 11px;
   background: #eef7f2;
   color: #3e6451;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .rules-list i {

@@ -908,11 +908,7 @@ onMounted(() => {
                 <div
                   class="request-information"
                 >
-                  <div class="request-icon">
-                    <i
-                      class="bi bi-file-earmark-text"
-                    />
-                  </div>
+
 
                   <div
                     class="request-text"
